@@ -152,15 +152,25 @@ HRESULT CD3D11Enumeration::Enumerate( LPDXUTCALLBACKISD3D11DEVICEACCEPTABLE IsD3
             continue;
         }
 
-        hr = EnumerateOutputs( pAdapterInfo );
-        if( FAILED( hr ) || pAdapterInfo->outputInfoList.empty() )
+        // Remote adapter(s) may not have monitor connected, so that
+        // output(s) couldn't be enumerated.
+        if (wcsstr(pAdapterInfo->AdapterDesc.Description, L"Ghost GPU") == nullptr)
         {
-            delete pAdapterInfo;
-            continue;
+            hr = EnumerateOutputs(pAdapterInfo);
+            if (FAILED(hr) || pAdapterInfo->outputInfoList.empty())
+            {
+                delete pAdapterInfo;
+                continue;
+            }
         }
 
         // Get info for each devicecombo on this device
-        if( FAILED( hr = EnumerateDeviceCombos( pAdapterInfo ) ) )
+        if (pAdapterInfo->outputInfoList.empty())
+            hr = EnumerateDeviceCombosNoAdapter(pAdapterInfo);
+        else
+            hr = EnumerateDeviceCombos(pAdapterInfo);
+
+        if (FAILED(hr))
         {
             delete pAdapterInfo;
             continue;
