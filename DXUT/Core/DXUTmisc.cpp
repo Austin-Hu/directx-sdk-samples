@@ -416,7 +416,7 @@ static bool DXUT_EnsureD3D9APIs()
         return true;
 
     // This could fail in theory, but not on any modern version of Windows
-    s_hModD3D9 = LoadLibraryEx( L"d3d9.dll", nullptr, 0x00000800 /* LOAD_LIBRARY_SEARCH_SYSTEM32 */ );
+    s_hModD3D9 = LoadLibrary( L"d3d9.dll");
     if( s_hModD3D9 )
     {
         // TODO - Use 11.1 perf APIs instead?
@@ -440,7 +440,7 @@ bool DXUT_EnsureD3D11APIs()
         return true;
 
     // This may fail if Direct3D 11 isn't installed
-    s_hModD3D11 = LoadLibraryEx( L"d3d11.dll", nullptr, 0x00000800 /* LOAD_LIBRARY_SEARCH_SYSTEM32 */ );
+    s_hModD3D11 = LoadLibrary( L"d3d11.dll");
     if( s_hModD3D11 )
     {
         s_DynamicD3D11CreateDevice = reinterpret_cast<PFN_D3D11_CREATE_DEVICE>( reinterpret_cast<void*>( GetProcAddress( s_hModD3D11, "D3D11CreateDevice" ) ) );
@@ -448,7 +448,7 @@ bool DXUT_EnsureD3D11APIs()
 
     if( !s_DynamicCreateDXGIFactory )
     {
-        s_hModDXGI = LoadLibraryEx( L"dxgi.dll", nullptr, 0x00000800 /* LOAD_LIBRARY_SEARCH_SYSTEM32 */ );
+        s_hModDXGI = LoadLibrary( L"dxgi.dll");
         if( s_hModDXGI )
         {
             s_DynamicCreateDXGIFactory = reinterpret_cast<LPCREATEDXGIFACTORY>( reinterpret_cast<void*>( GetProcAddress( s_hModDXGI, "CreateDXGIFactory1" ) ) );
