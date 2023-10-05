@@ -19,6 +19,8 @@
 #include <directxmath.h>
 #include <directxcolors.h>
 #include "resource.h"
+#include <vector>
+#include <list>
 
 using namespace DirectX;
 
@@ -224,7 +226,41 @@ HRESULT InitDevice()
         D3D_FEATURE_LEVEL_10_1,
         D3D_FEATURE_LEVEL_10_0,
     };
-	UINT numFeatureLevels = ARRAYSIZE( featureLevels );
+    UINT numFeatureLevels = ARRAYSIZE( featureLevels );
+
+    UINT i = 0;
+    IDXGIAdapter* pAdapter;
+
+    typedef struct _GPUInfo
+    {
+        IDXGIAdapter*           pAdapter;
+        DXGI_ADAPTER_DESC       adapterDesc;
+        ID3D11Device*           pDevice;
+        ID3D11Device1*          pDevice1;
+        ID3D11DeviceContext*    pImmediateContext;
+        ID3D11DeviceContext1*   pImmediateContext1;
+        IDXGISwapChain*         pSwapChain;
+        IDXGISwapChain1*        pSwapChain1;
+    }GPUInfo;
+
+    IDXGIFactory* pFactory = NULL;
+
+    std::vector<GPUInfo> gpuList;
+    gpuList.resize(100);
+
+    CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory);
+
+    while (pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND)
+    {
+        gpuList[i].pAdapter = pAdapter;
+        pAdapter->GetDesc(&(gpuList[i].adapterDesc));
+        
+        hr = D3D11CreateDevice(pAdapter, D3D_DRIVER_TYPE_UNKNOWN, nullptr, createDeviceFlags, featureLevels, numFeatureLevels,
+            D3D11_SDK_VERSION, &(gpuList[i].pDevice), &g_featureLevel, &(gpuList[i].pImmediateContext));
+
+        i++;
+    }
+
 
     for( UINT driverTypeIndex = 0; driverTypeIndex < numDriverTypes; driverTypeIndex++ )
     {
