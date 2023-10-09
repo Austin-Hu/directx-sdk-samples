@@ -121,7 +121,7 @@ enum eSimulationMode
     SIM_MODE_GRID
 };
 
-eSimulationMode g_eSimMode = SIM_MODE_GRID;
+eSimulationMode g_eSimMode = SIM_MODE_SIMPLE;
 
 //--------------------------------------------------------------------------------------
 // Direct3D11 Global variables
@@ -620,7 +620,7 @@ HRESULT CreateSimulationBuffers(ID3D11Device* pd3dDevice)
             particles.get()));
 
         V_RETURN(CreateStructuredBuffer< Particle >(
-            pd3dDevice,
+            g_pGhostGPU->m_pd3dDevice,
             g_iNumParticles,
             &(g_pGhostGPU->m_pSortedParticles),
             &(g_pGhostGPU->m_pSortedParticlesSRV),
@@ -635,7 +635,7 @@ HRESULT CreateSimulationBuffers(ID3D11Device* pd3dDevice)
             &(g_pGhostGPU->m_pParticleDensityUAV)));
 
         V_RETURN(CreateStructuredBuffer< ParticleForces >(
-            pd3dDevice,
+            g_pGhostGPU->m_pd3dDevice,
             g_iNumParticles,
             &(g_pGhostGPU->m_pParticleForces),
             &(g_pGhostGPU->m_pParticleForcesSRV),

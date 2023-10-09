@@ -15,7 +15,7 @@ public:
         CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory);
 
         IDXGIAdapter* pAdapter;
-        hr = pFactory->EnumAdapters(1, &pAdapter);
+        hr = pFactory->EnumAdapters(2, &pAdapter);
         DXGI_ADAPTER_DESC       adapterDesc;
 
         D3D_DRIVER_TYPE driverTypes[] =
