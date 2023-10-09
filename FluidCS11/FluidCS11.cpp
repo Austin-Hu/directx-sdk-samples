@@ -25,6 +25,9 @@
 #include "WaitDlg.h"
 
 #include <algorithm>
+#include "libloaderapi.h"
+
+#include "GhostGPU.h"
 
 #pragma warning( disable : 4100 )
 
@@ -134,56 +137,59 @@ CDXUTDialog                         g_HUD;                   // manages the 3D
 CDXUTDialog                         g_SampleUI;              // dialog for sample specific controls
 
 // Resources
-CDXUTTextHelper*                    g_pTxtHelper = nullptr;
+CDXUTTextHelper* g_pTxtHelper = nullptr;
 
 // Shaders
-ID3D11VertexShader*                 g_pParticleVS = nullptr;
-ID3D11GeometryShader*               g_pParticleGS = nullptr;
-ID3D11PixelShader*                  g_pParticlePS = nullptr;
+ID3D11VertexShader* g_pParticleVS = nullptr;
+ID3D11GeometryShader* g_pParticleGS = nullptr;
+ID3D11PixelShader* g_pParticlePS = nullptr;
 
-ID3D11ComputeShader*                g_pBuildGridCS = nullptr;
-ID3D11ComputeShader*                g_pClearGridIndicesCS = nullptr;
-ID3D11ComputeShader*                g_pBuildGridIndicesCS = nullptr;
-ID3D11ComputeShader*                g_pRearrangeParticlesCS = nullptr;
-ID3D11ComputeShader*                g_pDensity_SimpleCS = nullptr;
-ID3D11ComputeShader*                g_pForce_SimpleCS = nullptr;
-ID3D11ComputeShader*                g_pDensity_SharedCS = nullptr;
-ID3D11ComputeShader*                g_pForce_SharedCS = nullptr;
-ID3D11ComputeShader*                g_pDensity_GridCS = nullptr;
-ID3D11ComputeShader*                g_pForce_GridCS = nullptr;
-ID3D11ComputeShader*                g_pIntegrateCS = nullptr;
+ID3D11ComputeShader* g_pBuildGridCS = nullptr;
+ID3D11ComputeShader* g_pClearGridIndicesCS = nullptr;
+ID3D11ComputeShader* g_pBuildGridIndicesCS = nullptr;
+ID3D11ComputeShader* g_pRearrangeParticlesCS = nullptr;
+ID3D11ComputeShader* g_pDensity_SimpleCS = nullptr;
+ID3D11ComputeShader* g_pForce_SimpleCS = nullptr;
+ID3D11ComputeShader* g_pDensity_SharedCS = nullptr;
+ID3D11ComputeShader* g_pForce_SharedCS = nullptr;
+ID3D11ComputeShader* g_pDensity_GridCS = nullptr;
+ID3D11ComputeShader* g_pForce_GridCS = nullptr;
+ID3D11ComputeShader* g_pIntegrateCS = nullptr;
 
-ID3D11ComputeShader*                g_pSortBitonic = nullptr;
-ID3D11ComputeShader*                g_pSortTranspose = nullptr;
+ID3D11ComputeShader* g_pSortBitonic = nullptr;
+ID3D11ComputeShader* g_pSortTranspose = nullptr;
 
 // Structured Buffers
-ID3D11Buffer*                       g_pParticles = nullptr;
-ID3D11ShaderResourceView*           g_pParticlesSRV = nullptr;
-ID3D11UnorderedAccessView*          g_pParticlesUAV = nullptr;
+ID3D11Buffer* g_pParticles = nullptr;
+ID3D11ShaderResourceView* g_pParticlesSRV = nullptr;
+ID3D11UnorderedAccessView* g_pParticlesUAV = nullptr;
 
-ID3D11Buffer*                       g_pSortedParticles = nullptr;
-ID3D11ShaderResourceView*           g_pSortedParticlesSRV = nullptr;
-ID3D11UnorderedAccessView*          g_pSortedParticlesUAV = nullptr;
+ID3D11Buffer* g_pSortedParticles = nullptr;
+ID3D11ShaderResourceView* g_pSortedParticlesSRV = nullptr;
+ID3D11UnorderedAccessView* g_pSortedParticlesUAV = nullptr;
 
-ID3D11Buffer*                       g_pParticleDensity = nullptr;
-ID3D11ShaderResourceView*           g_pParticleDensitySRV = nullptr;
-ID3D11UnorderedAccessView*          g_pParticleDensityUAV = nullptr;
+ID3D11Buffer* g_pParticleDensity = nullptr;
+ID3D11ShaderResourceView* g_pParticleDensitySRV = nullptr;
+ID3D11UnorderedAccessView* g_pParticleDensityUAV = nullptr;
 
-ID3D11Buffer*                       g_pParticleForces = nullptr;
-ID3D11ShaderResourceView*           g_pParticleForcesSRV = nullptr;
-ID3D11UnorderedAccessView*          g_pParticleForcesUAV = nullptr;
+ID3D11Buffer* g_pParticleForces = nullptr;
+ID3D11ShaderResourceView* g_pParticleForcesSRV = nullptr;
+ID3D11UnorderedAccessView* g_pParticleForcesUAV = nullptr;
 
-ID3D11Buffer*                       g_pGrid = nullptr;
-ID3D11ShaderResourceView*           g_pGridSRV = nullptr;
-ID3D11UnorderedAccessView*          g_pGridUAV = nullptr;
+ID3D11Buffer* g_pGrid = nullptr;
+ID3D11ShaderResourceView* g_pGridSRV = nullptr;
+ID3D11UnorderedAccessView* g_pGridUAV = nullptr;
 
-ID3D11Buffer*                       g_pGridPingPong = nullptr;
-ID3D11ShaderResourceView*           g_pGridPingPongSRV = nullptr;
-ID3D11UnorderedAccessView*          g_pGridPingPongUAV = nullptr;
+ID3D11Buffer* g_pGridPingPong = nullptr;
+ID3D11ShaderResourceView* g_pGridPingPongSRV = nullptr;
+ID3D11UnorderedAccessView* g_pGridPingPongUAV = nullptr;
 
-ID3D11Buffer*                       g_pGridIndices = nullptr;
-ID3D11ShaderResourceView*           g_pGridIndicesSRV = nullptr;
-ID3D11UnorderedAccessView*          g_pGridIndicesUAV = nullptr;
+ID3D11Buffer* g_pGridIndices = nullptr;
+ID3D11ShaderResourceView* g_pGridIndicesSRV = nullptr;
+ID3D11UnorderedAccessView* g_pGridIndicesUAV = nullptr;
+
+
+GhostGPU* g_pGhostGPU = nullptr;
 
 // Constant Buffer Layout
 #pragma warning(push)
@@ -199,7 +205,7 @@ __declspec(align(16)) struct CBSimulationConstants
     FLOAT fGradPressureCoef;
     FLOAT fLapViscosityCoef;
     FLOAT fWallStiffness;
-    
+
     XMFLOAT2A vGravity;
     XMFLOAT4A vGridDim;
 
@@ -222,9 +228,12 @@ __declspec(align(16)) struct SortCB
 #pragma warning(pop)
 
 // Constant Buffers
-ID3D11Buffer*                       g_pcbSimulationConstants = nullptr;
-ID3D11Buffer*                       g_pcbRenderConstants = nullptr;
-ID3D11Buffer*                       g_pSortCB = nullptr;
+ID3D11Buffer* g_pcbSimulationConstants = nullptr;
+ID3D11Buffer* g_pcbRenderConstants = nullptr;
+ID3D11Buffer* g_pSortCB = nullptr;
+
+
+
 
 //--------------------------------------------------------------------------------------
 // UI control IDs
@@ -244,23 +253,23 @@ ID3D11Buffer*                       g_pSortCB = nullptr;
 //--------------------------------------------------------------------------------------
 // Forward declarations 
 //--------------------------------------------------------------------------------------
-bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* pUserContext );
-LRESULT CALLBACK MsgProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool* pbNoFurtherProcessing,
-                          void* pUserContext );
-void CALLBACK OnGUIEvent( UINT nEvent, int nControlID, CDXUTControl* pControl, void* pUserContext );
+bool CALLBACK ModifyDeviceSettings(DXUTDeviceSettings* pDeviceSettings, void* pUserContext);
+LRESULT CALLBACK MsgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool* pbNoFurtherProcessing,
+    void* pUserContext);
+void CALLBACK OnGUIEvent(UINT nEvent, int nControlID, CDXUTControl* pControl, void* pUserContext);
 
-bool CALLBACK IsD3D11DeviceAcceptable( const CD3D11EnumAdapterInfo *AdapterInfo, UINT Output, const CD3D11EnumDeviceInfo *DeviceInfo,
-                                       DXGI_FORMAT BackBufferFormat, bool bWindowed, void* pUserContext );
-HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc,
-                                      void* pUserContext );
-HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapChain* pSwapChain,
-                                          const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc, void* pUserContext );
-void CALLBACK OnD3D11ReleasingSwapChain( void* pUserContext );
-void CALLBACK OnD3D11DestroyDevice( void* pUserContext );
-void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext, double fTime,
-                                  float fElapsedTime, void* pUserContext );
+bool CALLBACK IsD3D11DeviceAcceptable(const CD3D11EnumAdapterInfo* AdapterInfo, UINT Output, const CD3D11EnumDeviceInfo* DeviceInfo,
+    DXGI_FORMAT BackBufferFormat, bool bWindowed, void* pUserContext);
+HRESULT CALLBACK OnD3D11CreateDevice(ID3D11Device* pd3dDevice, const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc,
+    void* pUserContext);
+HRESULT CALLBACK OnD3D11ResizedSwapChain(ID3D11Device* pd3dDevice, IDXGISwapChain* pSwapChain,
+    const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc, void* pUserContext);
+void CALLBACK OnD3D11ReleasingSwapChain(void* pUserContext);
+void CALLBACK OnD3D11DestroyDevice(void* pUserContext);
+void CALLBACK OnD3D11FrameRender(ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext, double fTime,
+    float fElapsedTime, void* pUserContext);
 
-HRESULT CreateSimulationBuffers( ID3D11Device* pd3dDevice );
+HRESULT CreateSimulationBuffers(ID3D11Device* pd3dDevice);
 void InitApp();
 void RenderText();
 
@@ -268,32 +277,45 @@ void RenderText();
 // Entry point to the program. Initializes everything and goes into a message processing 
 // loop. Idle time is used to render the scene.
 //--------------------------------------------------------------------------------------
-int WINAPI wWinMain( _In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow )
+int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPWSTR lpCmdLine, _In_ int nCmdShow)
 {
     // Enable run-time memory check for debug builds.
 #if defined(DEBUG) | defined(_DEBUG)
-    _CrtSetDbgFlag( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
+
+    g_pGhostGPU = new GhostGPU();
+
+    g_pGhostGPU->Init();
+
+
+    //HMODULE hr = LoadLibrary(L"dxgi.dll");
+
+    //if (hr == 0)
+    //{
+    //    int c;
+    //    c = 0;
+    //}
 
     // DXUT will create and use the best device
     // that is available on the system depending on which D3D callbacks are set below
 
     // Set DXUT callbacks
-    DXUTSetCallbackDeviceChanging( ModifyDeviceSettings );
-    DXUTSetCallbackMsgProc( MsgProc );
+    DXUTSetCallbackDeviceChanging(ModifyDeviceSettings);
+    DXUTSetCallbackMsgProc(MsgProc);
 
-    DXUTSetCallbackD3D11DeviceAcceptable( IsD3D11DeviceAcceptable );
-    DXUTSetCallbackD3D11DeviceCreated( OnD3D11CreateDevice );
-    DXUTSetCallbackD3D11SwapChainResized( OnD3D11ResizedSwapChain );
-    DXUTSetCallbackD3D11FrameRender( OnD3D11FrameRender );
-    DXUTSetCallbackD3D11SwapChainReleasing( OnD3D11ReleasingSwapChain );
-    DXUTSetCallbackD3D11DeviceDestroyed( OnD3D11DestroyDevice );
+    DXUTSetCallbackD3D11DeviceAcceptable(IsD3D11DeviceAcceptable);
+    DXUTSetCallbackD3D11DeviceCreated(OnD3D11CreateDevice);
+    DXUTSetCallbackD3D11SwapChainResized(OnD3D11ResizedSwapChain);
+    DXUTSetCallbackD3D11FrameRender(OnD3D11FrameRender);
+    DXUTSetCallbackD3D11SwapChainReleasing(OnD3D11ReleasingSwapChain);
+    DXUTSetCallbackD3D11DeviceDestroyed(OnD3D11DestroyDevice);
 
     InitApp();
-    DXUTInit( true, true ); // Parse the command line, show msgboxes on error, and an extra cmd line param to force REF for now
-    DXUTSetCursorSettings( true, true ); // Show the cursor and clip it when in full screen
-    DXUTCreateWindow( L"FluidCS11" );
-    DXUTCreateDevice( D3D_FEATURE_LEVEL_10_0, true, 1024, 768 );
+    DXUTInit(true, true); // Parse the command line, show msgboxes on error, and an extra cmd line param to force REF for now
+    DXUTSetCursorSettings(true, true); // Show the cursor and clip it when in full screen
+    DXUTCreateWindow(L"FluidCS11");
+    DXUTCreateDevice(D3D_FEATURE_LEVEL_10_0, true, 1024, 768);
     DXUTMainLoop(); // Enter into the DXUT render loop
 
     return DXUTGetExitCode();
@@ -306,43 +328,43 @@ int WINAPI wWinMain( _In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
 void InitApp()
 {
     // Initialize dialogs
-    g_D3DSettingsDlg.Init( &g_DialogResourceManager );
-    g_HUD.Init( &g_DialogResourceManager );
-    g_SampleUI.Init( &g_DialogResourceManager );
+    g_D3DSettingsDlg.Init(&g_DialogResourceManager);
+    g_HUD.Init(&g_DialogResourceManager);
+    g_SampleUI.Init(&g_DialogResourceManager);
 
-    g_HUD.SetCallback( OnGUIEvent ); int iY = 20;
-    g_HUD.AddButton( IDC_TOGGLEFULLSCREEN, L"Toggle full screen", 0, iY, 170, 22 );
-    g_HUD.AddButton( IDC_TOGGLEREF, L"Toggle REF (F3)", 0, iY += 26, 170, 22, VK_F3 );
-    g_HUD.AddButton( IDC_CHANGEDEVICE, L"Change device (F2)", 0, iY += 26, 170, 22, VK_F2 );
+    g_HUD.SetCallback(OnGUIEvent); int iY = 20;
+    g_HUD.AddButton(IDC_TOGGLEFULLSCREEN, L"Toggle full screen", 0, iY, 170, 22);
+    g_HUD.AddButton(IDC_TOGGLEREF, L"Toggle REF (F3)", 0, iY += 26, 170, 22, VK_F3);
+    g_HUD.AddButton(IDC_CHANGEDEVICE, L"Change device (F2)", 0, iY += 26, 170, 22, VK_F2);
 
-    g_SampleUI.SetCallback( OnGUIEvent ); iY = 0;
+    g_SampleUI.SetCallback(OnGUIEvent); iY = 0;
 
-    g_SampleUI.AddButton( IDC_RESETSIM, L"Reset Particles", 0, iY += 26, 170, 22 );
-    
-    g_SampleUI.AddComboBox( IDC_NUMPARTICLES, 0, iY += 26, 170, 22 );
-    g_SampleUI.GetComboBox( IDC_NUMPARTICLES )->AddItem( L"8K Particles", UIntToPtr(NUM_PARTICLES_8K) );
-    g_SampleUI.GetComboBox( IDC_NUMPARTICLES )->AddItem( L"16K Particles", UIntToPtr(NUM_PARTICLES_16K) );
-    g_SampleUI.GetComboBox( IDC_NUMPARTICLES )->AddItem( L"32K Particles", UIntToPtr(NUM_PARTICLES_32K) );
-    g_SampleUI.GetComboBox( IDC_NUMPARTICLES )->AddItem( L"64K Particles", UIntToPtr(NUM_PARTICLES_64K) );
-    g_SampleUI.GetComboBox( IDC_NUMPARTICLES )->SetSelectedByData( UIntToPtr(g_iNumParticles) );
+    g_SampleUI.AddButton(IDC_RESETSIM, L"Reset Particles", 0, iY += 26, 170, 22);
 
-    g_SampleUI.AddComboBox( IDC_GRAVITY, 0, iY += 26, 170, 22 );
-    g_SampleUI.GetComboBox( IDC_GRAVITY )->AddItem( L"Gravity Down", (void*)&GRAVITY_DOWN );
-    g_SampleUI.GetComboBox( IDC_GRAVITY )->AddItem( L"Gravity Up", (void*)&GRAVITY_UP );
-    g_SampleUI.GetComboBox( IDC_GRAVITY )->AddItem( L"Gravity Left", (void*)&GRAVITY_LEFT );
-    g_SampleUI.GetComboBox( IDC_GRAVITY )->AddItem( L"Gravity Right", (void*)&GRAVITY_RIGHT );
+    g_SampleUI.AddComboBox(IDC_NUMPARTICLES, 0, iY += 26, 170, 22);
+    g_SampleUI.GetComboBox(IDC_NUMPARTICLES)->AddItem(L"8K Particles", UIntToPtr(NUM_PARTICLES_8K));
+    g_SampleUI.GetComboBox(IDC_NUMPARTICLES)->AddItem(L"16K Particles", UIntToPtr(NUM_PARTICLES_16K));
+    g_SampleUI.GetComboBox(IDC_NUMPARTICLES)->AddItem(L"32K Particles", UIntToPtr(NUM_PARTICLES_32K));
+    g_SampleUI.GetComboBox(IDC_NUMPARTICLES)->AddItem(L"64K Particles", UIntToPtr(NUM_PARTICLES_64K));
+    g_SampleUI.GetComboBox(IDC_NUMPARTICLES)->SetSelectedByData(UIntToPtr(g_iNumParticles));
 
-    g_SampleUI.AddRadioButton( IDC_SIMSIMPLE, IDC_SIMMODE, L"Simple N^2", 0, iY += 26, 150, 22 );
-    g_SampleUI.AddRadioButton( IDC_SIMSHARED, IDC_SIMMODE, L"Shared Memory N^2", 0, iY += 26, 150, 22 );
-    g_SampleUI.AddRadioButton( IDC_SIMGRID, IDC_SIMMODE, L"Grid + Sort", 0, iY += 26, 150, 22 );
-    g_SampleUI.GetRadioButton( IDC_SIMGRID )->SetChecked( true );
+    g_SampleUI.AddComboBox(IDC_GRAVITY, 0, iY += 26, 170, 22);
+    g_SampleUI.GetComboBox(IDC_GRAVITY)->AddItem(L"Gravity Down", (void*)&GRAVITY_DOWN);
+    g_SampleUI.GetComboBox(IDC_GRAVITY)->AddItem(L"Gravity Up", (void*)&GRAVITY_UP);
+    g_SampleUI.GetComboBox(IDC_GRAVITY)->AddItem(L"Gravity Left", (void*)&GRAVITY_LEFT);
+    g_SampleUI.GetComboBox(IDC_GRAVITY)->AddItem(L"Gravity Right", (void*)&GRAVITY_RIGHT);
+
+    g_SampleUI.AddRadioButton(IDC_SIMSIMPLE, IDC_SIMMODE, L"Simple N^2", 0, iY += 26, 150, 22);
+    g_SampleUI.AddRadioButton(IDC_SIMSHARED, IDC_SIMMODE, L"Shared Memory N^2", 0, iY += 26, 150, 22);
+    g_SampleUI.AddRadioButton(IDC_SIMGRID, IDC_SIMMODE, L"Grid + Sort", 0, iY += 26, 150, 22);
+    g_SampleUI.GetRadioButton(IDC_SIMGRID)->SetChecked(true);
 }
 
 
 //--------------------------------------------------------------------------------------
 // Called right before creating a D3D device, allowing the app to modify the device settings as needed
 //--------------------------------------------------------------------------------------
-bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* pUserContext )
+bool CALLBACK ModifyDeviceSettings(DXUTDeviceSettings* pDeviceSettings, void* pUserContext)
 {
     return true;
 }
@@ -354,11 +376,11 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
 void RenderText()
 {
     g_pTxtHelper->Begin();
-    g_pTxtHelper->SetInsertionPos( 2, 0 );
-    g_pTxtHelper->SetForegroundColor( Colors::Yellow );
-    g_pTxtHelper->DrawTextLine( DXUTGetFrameStats( DXUTIsVsyncEnabled() ) );
-    g_pTxtHelper->DrawTextLine( DXUTGetDeviceStats() );
-    g_pTxtHelper->DrawFormattedTextLine( L"%i Particles", g_iNumParticles );
+    g_pTxtHelper->SetInsertionPos(2, 0);
+    g_pTxtHelper->SetForegroundColor(Colors::Yellow);
+    g_pTxtHelper->DrawTextLine(DXUTGetFrameStats(DXUTIsVsyncEnabled()));
+    g_pTxtHelper->DrawTextLine(DXUTGetDeviceStats());
+    g_pTxtHelper->DrawFormattedTextLine(L"%i Particles", g_iNumParticles);
 
     g_pTxtHelper->End();
 }
@@ -367,27 +389,27 @@ void RenderText()
 //--------------------------------------------------------------------------------------
 // Handle messages to the application
 //--------------------------------------------------------------------------------------
-LRESULT CALLBACK MsgProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool* pbNoFurtherProcessing,
-                          void* pUserContext )
+LRESULT CALLBACK MsgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bool* pbNoFurtherProcessing,
+    void* pUserContext)
 {
     // Pass messages to dialog resource manager calls so GUI state is updated correctly
-    *pbNoFurtherProcessing = g_DialogResourceManager.MsgProc( hWnd, uMsg, wParam, lParam );
-    if( *pbNoFurtherProcessing )
+    *pbNoFurtherProcessing = g_DialogResourceManager.MsgProc(hWnd, uMsg, wParam, lParam);
+    if (*pbNoFurtherProcessing)
         return 0;
 
     // Pass messages to settings dialog if its active
-    if( g_D3DSettingsDlg.IsActive() )
+    if (g_D3DSettingsDlg.IsActive())
     {
-        g_D3DSettingsDlg.MsgProc( hWnd, uMsg, wParam, lParam );
+        g_D3DSettingsDlg.MsgProc(hWnd, uMsg, wParam, lParam);
         return 0;
     }
 
     // Give the dialogs a chance to handle the message first
-    *pbNoFurtherProcessing = g_HUD.MsgProc( hWnd, uMsg, wParam, lParam );
-    if( *pbNoFurtherProcessing )
+    *pbNoFurtherProcessing = g_HUD.MsgProc(hWnd, uMsg, wParam, lParam);
+    if (*pbNoFurtherProcessing)
         return 0;
-    *pbNoFurtherProcessing = g_SampleUI.MsgProc( hWnd, uMsg, wParam, lParam );
-    if( *pbNoFurtherProcessing )
+    *pbNoFurtherProcessing = g_SampleUI.MsgProc(hWnd, uMsg, wParam, lParam);
+    if (*pbNoFurtherProcessing)
         return 0;
 
     return 0;
@@ -397,31 +419,31 @@ LRESULT CALLBACK MsgProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, bo
 //--------------------------------------------------------------------------------------
 // Handles the GUI events
 //--------------------------------------------------------------------------------------
-void CALLBACK OnGUIEvent( UINT nEvent, int nControlID, CDXUTControl* pControl, void* pUserContext )
+void CALLBACK OnGUIEvent(UINT nEvent, int nControlID, CDXUTControl* pControl, void* pUserContext)
 {
-    switch( nControlID )
+    switch (nControlID)
     {
-            // Standard DXUT controls
-        case IDC_TOGGLEFULLSCREEN:
-            DXUTToggleFullScreen(); break;
-        case IDC_TOGGLEREF:
-            DXUTToggleREF(); break;
-        case IDC_CHANGEDEVICE:
-            g_D3DSettingsDlg.SetActive( !g_D3DSettingsDlg.IsActive() ); break;
-        case IDC_RESETSIM:
-            CreateSimulationBuffers( DXUTGetD3D11Device() ); break;
-        case IDC_NUMPARTICLES:
-            g_iNumParticles = PtrToUint( ((CDXUTComboBox*)pControl)->GetSelectedData() );
-            CreateSimulationBuffers( DXUTGetD3D11Device() );
-            break;
-        case IDC_GRAVITY:
-            g_vGravity = *(const XMFLOAT2A*)((CDXUTComboBox*)pControl)->GetSelectedData(); break;
-        case IDC_SIMSIMPLE:
-            g_eSimMode = SIM_MODE_SIMPLE; break;
-        case IDC_SIMSHARED:
-            g_eSimMode = SIM_MODE_SHARED; break;
-        case IDC_SIMGRID:
-            g_eSimMode = SIM_MODE_GRID; break;
+        // Standard DXUT controls
+    case IDC_TOGGLEFULLSCREEN:
+        DXUTToggleFullScreen(); break;
+    case IDC_TOGGLEREF:
+        DXUTToggleREF(); break;
+    case IDC_CHANGEDEVICE:
+        g_D3DSettingsDlg.SetActive(!g_D3DSettingsDlg.IsActive()); break;
+    case IDC_RESETSIM:
+        CreateSimulationBuffers(DXUTGetD3D11Device()); break;
+    case IDC_NUMPARTICLES:
+        g_iNumParticles = PtrToUint(((CDXUTComboBox*)pControl)->GetSelectedData());
+        CreateSimulationBuffers(DXUTGetD3D11Device());
+        break;
+    case IDC_GRAVITY:
+        g_vGravity = *(const XMFLOAT2A*)((CDXUTComboBox*)pControl)->GetSelectedData(); break;
+    case IDC_SIMSIMPLE:
+        g_eSimMode = SIM_MODE_SIMPLE; break;
+    case IDC_SIMSHARED:
+        g_eSimMode = SIM_MODE_SHARED; break;
+    case IDC_SIMGRID:
+        g_eSimMode = SIM_MODE_GRID; break;
     }
 }
 
@@ -429,10 +451,10 @@ void CALLBACK OnGUIEvent( UINT nEvent, int nControlID, CDXUTControl* pControl, v
 //--------------------------------------------------------------------------------------
 // Reject any D3D11 devices that aren't acceptable by returning false
 //--------------------------------------------------------------------------------------
-bool CALLBACK IsD3D11DeviceAcceptable( const CD3D11EnumAdapterInfo *AdapterInfo, UINT Output, const CD3D11EnumDeviceInfo *DeviceInfo,
-                                       DXGI_FORMAT BackBufferFormat, bool bWindowed, void* pUserContext )
+bool CALLBACK IsD3D11DeviceAcceptable(const CD3D11EnumAdapterInfo* AdapterInfo, UINT Output, const CD3D11EnumDeviceInfo* DeviceInfo,
+    DXGI_FORMAT BackBufferFormat, bool bWindowed, void* pUserContext)
 {
-    if ( DeviceInfo->ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x == FALSE )
+    if (DeviceInfo->ComputeShaders_Plus_RawAndStructuredBuffers_Via_Shader_4_x == FALSE)
         return false;
 
     return true;
@@ -452,8 +474,8 @@ HRESULT CreateConstantBuffer(ID3D11Device* pd3dDevice, ID3D11Buffer** ppCB)
     Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
     Desc.CPUAccessFlags = 0;
     Desc.MiscFlags = 0;
-    Desc.ByteWidth = sizeof( T );
-    V_RETURN( pd3dDevice->CreateBuffer( &Desc, nullptr, ppCB ) );
+    Desc.ByteWidth = sizeof(T);
+    V_RETURN(pd3dDevice->CreateBuffer(&Desc, nullptr, ppCB));
 
     return hr;
 }
@@ -477,21 +499,21 @@ HRESULT CreateStructuredBuffer(ID3D11Device* pd3dDevice, UINT iNumElements, ID3D
 
     D3D11_SUBRESOURCE_DATA bufferInitData = {};
     bufferInitData.pSysMem = pInitialData;
-    V_RETURN( pd3dDevice->CreateBuffer( &bufferDesc, (pInitialData)? &bufferInitData : nullptr, ppBuffer ) );
+    V_RETURN(pd3dDevice->CreateBuffer(&bufferDesc, (pInitialData) ? &bufferInitData : nullptr, ppBuffer));
 
     // Create SRV
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_UNKNOWN;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
     srvDesc.Buffer.ElementWidth = iNumElements;
-    V_RETURN( pd3dDevice->CreateShaderResourceView( *ppBuffer, &srvDesc, ppSRV ) );
+    V_RETURN(pd3dDevice->CreateShaderResourceView(*ppBuffer, &srvDesc, ppSRV));
 
     // Create UAV
     D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_UNKNOWN;
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.NumElements = iNumElements;
-    V_RETURN( pd3dDevice->CreateUnorderedAccessView( *ppBuffer, &uavDesc, ppUAV ) );
+    V_RETURN(pd3dDevice->CreateUnorderedAccessView(*ppBuffer, &uavDesc, ppUAV));
 
     return hr;
 }
@@ -500,88 +522,125 @@ HRESULT CreateStructuredBuffer(ID3D11Device* pd3dDevice, UINT iNumElements, ID3D
 //--------------------------------------------------------------------------------------
 // Create the buffers used for the simulation data
 //--------------------------------------------------------------------------------------
-HRESULT CreateSimulationBuffers( ID3D11Device* pd3dDevice )
+HRESULT CreateSimulationBuffers(ID3D11Device* pd3dDevice)
 {
     HRESULT hr = S_OK;
 
     // Destroy the old buffers in case the number of particles has changed
-    SAFE_RELEASE( g_pParticles );
-    SAFE_RELEASE( g_pParticlesSRV );
-    SAFE_RELEASE( g_pParticlesUAV );
-    
-    SAFE_RELEASE( g_pSortedParticles );
-    SAFE_RELEASE( g_pSortedParticlesSRV );
-    SAFE_RELEASE( g_pSortedParticlesUAV );
+    SAFE_RELEASE(g_pParticles);
+    SAFE_RELEASE(g_pParticlesSRV);
+    SAFE_RELEASE(g_pParticlesUAV);
 
-    SAFE_RELEASE( g_pParticleForces );
-    SAFE_RELEASE( g_pParticleForcesSRV );
-    SAFE_RELEASE( g_pParticleForcesUAV );
-    
-    SAFE_RELEASE( g_pParticleDensity );
-    SAFE_RELEASE( g_pParticleDensitySRV );
-    SAFE_RELEASE( g_pParticleDensityUAV );
+    SAFE_RELEASE(g_pSortedParticles);
+    SAFE_RELEASE(g_pSortedParticlesSRV);
+    SAFE_RELEASE(g_pSortedParticlesUAV);
 
-    SAFE_RELEASE( g_pGridSRV );
-    SAFE_RELEASE( g_pGridUAV );
-    SAFE_RELEASE( g_pGrid );
+    SAFE_RELEASE(g_pParticleForces);
+    SAFE_RELEASE(g_pParticleForcesSRV);
+    SAFE_RELEASE(g_pParticleForcesUAV);
 
-    SAFE_RELEASE( g_pGridPingPongSRV );
-    SAFE_RELEASE( g_pGridPingPongUAV );
-    SAFE_RELEASE( g_pGridPingPong );
+    SAFE_RELEASE(g_pParticleDensity);
+    SAFE_RELEASE(g_pParticleDensitySRV);
+    SAFE_RELEASE(g_pParticleDensityUAV);
 
-    SAFE_RELEASE( g_pGridIndicesSRV );
-    SAFE_RELEASE( g_pGridIndicesUAV );
-    SAFE_RELEASE( g_pGridIndices );
+    SAFE_RELEASE(g_pGridSRV);
+    SAFE_RELEASE(g_pGridUAV);
+    SAFE_RELEASE(g_pGrid);
+
+    SAFE_RELEASE(g_pGridPingPongSRV);
+    SAFE_RELEASE(g_pGridPingPongUAV);
+    SAFE_RELEASE(g_pGridPingPong);
+
+    SAFE_RELEASE(g_pGridIndicesSRV);
+    SAFE_RELEASE(g_pGridIndicesUAV);
+    SAFE_RELEASE(g_pGridIndices);
 
     // Create the initial particle positions
     // This is only used to populate the GPU buffers on creation
-    const UINT iStartingWidth = (UINT)sqrt( (FLOAT)g_iNumParticles );
+    const UINT iStartingWidth = (UINT)sqrt((FLOAT)g_iNumParticles);
 
     auto particles = std::make_unique<Particle[]>(g_iNumParticles);
-    ZeroMemory( particles.get(), sizeof(Particle) * g_iNumParticles );
-    for ( UINT i = 0 ; i < g_iNumParticles ; i++ )
+    ZeroMemory(particles.get(), sizeof(Particle) * g_iNumParticles);
+    for (UINT i = 0; i < g_iNumParticles; i++)
     {
         // Arrange the particles in a nice square
         UINT x = i % iStartingWidth;
         UINT y = i / iStartingWidth;
-        particles[ i ].vPosition = XMFLOAT2( g_fInitialParticleSpacing * (FLOAT)x, g_fInitialParticleSpacing * (FLOAT)y );
+        particles[i].vPosition = XMFLOAT2(g_fInitialParticleSpacing * (FLOAT)x, g_fInitialParticleSpacing * (FLOAT)y);
     }
 
     // Create Structured Buffers
-    V_RETURN( CreateStructuredBuffer< Particle >( pd3dDevice, g_iNumParticles, &g_pParticles, &g_pParticlesSRV, &g_pParticlesUAV, particles.get() ) );
-    DXUT_SetDebugName( g_pParticles, "Particles" );
-    DXUT_SetDebugName( g_pParticlesSRV, "Particles SRV" );
-    DXUT_SetDebugName( g_pParticlesUAV, "Particles UAV" );
+    V_RETURN(CreateStructuredBuffer< Particle >(pd3dDevice, g_iNumParticles, &g_pParticles, &g_pParticlesSRV, &g_pParticlesUAV, particles.get()));
+    DXUT_SetDebugName(g_pParticles, "Particles");
+    DXUT_SetDebugName(g_pParticlesSRV, "Particles SRV");
+    DXUT_SetDebugName(g_pParticlesUAV, "Particles UAV");
 
-    V_RETURN( CreateStructuredBuffer< Particle >( pd3dDevice, g_iNumParticles, &g_pSortedParticles, &g_pSortedParticlesSRV, &g_pSortedParticlesUAV, particles.get()) );
-    DXUT_SetDebugName( g_pSortedParticles, "Sorted" );
-    DXUT_SetDebugName( g_pSortedParticlesSRV, "Sorted SRV" );
-    DXUT_SetDebugName( g_pSortedParticlesUAV, "Sorted UAV" );
+    V_RETURN(CreateStructuredBuffer< Particle >(pd3dDevice, g_iNumParticles, &g_pSortedParticles, &g_pSortedParticlesSRV, &g_pSortedParticlesUAV, particles.get()));
+    DXUT_SetDebugName(g_pSortedParticles, "Sorted");
+    DXUT_SetDebugName(g_pSortedParticlesSRV, "Sorted SRV");
+    DXUT_SetDebugName(g_pSortedParticlesUAV, "Sorted UAV");
 
-    V_RETURN( CreateStructuredBuffer< ParticleForces >( pd3dDevice, g_iNumParticles, &g_pParticleForces, &g_pParticleForcesSRV, &g_pParticleForcesUAV ) );
-    DXUT_SetDebugName( g_pParticleForces, "Forces" );
-    DXUT_SetDebugName( g_pParticleForcesSRV, "Forces SRV" );
-    DXUT_SetDebugName( g_pParticleForcesUAV, "Forces UAV" );
+    V_RETURN(CreateStructuredBuffer< ParticleForces >(pd3dDevice, g_iNumParticles, &g_pParticleForces, &g_pParticleForcesSRV, &g_pParticleForcesUAV));
+    DXUT_SetDebugName(g_pParticleForces, "Forces");
+    DXUT_SetDebugName(g_pParticleForcesSRV, "Forces SRV");
+    DXUT_SetDebugName(g_pParticleForcesUAV, "Forces UAV");
 
-    V_RETURN( CreateStructuredBuffer< ParticleDensity >( pd3dDevice, g_iNumParticles, &g_pParticleDensity, &g_pParticleDensitySRV, &g_pParticleDensityUAV ) );
-    DXUT_SetDebugName( g_pParticleDensity, "Density" );
-    DXUT_SetDebugName( g_pParticleDensitySRV, "Density SRV" );
-    DXUT_SetDebugName( g_pParticleDensityUAV, "Density UAV" );
+    V_RETURN(CreateStructuredBuffer< ParticleDensity >(pd3dDevice, g_iNumParticles, &g_pParticleDensity, &g_pParticleDensitySRV, &g_pParticleDensityUAV));
+    DXUT_SetDebugName(g_pParticleDensity, "Density");
+    DXUT_SetDebugName(g_pParticleDensitySRV, "Density SRV");
+    DXUT_SetDebugName(g_pParticleDensityUAV, "Density UAV");
 
-    V_RETURN( CreateStructuredBuffer< UINT >( pd3dDevice, g_iNumParticles, &g_pGrid, &g_pGridSRV, &g_pGridUAV ) );
-    DXUT_SetDebugName( g_pGrid, "Grid" );
-    DXUT_SetDebugName( g_pGridSRV, "Grid SRV" );
-    DXUT_SetDebugName( g_pGridUAV, "Grid UAV" );
+    V_RETURN(CreateStructuredBuffer< UINT >(pd3dDevice, g_iNumParticles, &g_pGrid, &g_pGridSRV, &g_pGridUAV));
+    DXUT_SetDebugName(g_pGrid, "Grid");
+    DXUT_SetDebugName(g_pGridSRV, "Grid SRV");
+    DXUT_SetDebugName(g_pGridUAV, "Grid UAV");
 
-    V_RETURN( CreateStructuredBuffer< UINT >( pd3dDevice, g_iNumParticles, &g_pGridPingPong, &g_pGridPingPongSRV, &g_pGridPingPongUAV ) );
-    DXUT_SetDebugName( g_pGridPingPong, "PingPong" );
-    DXUT_SetDebugName( g_pGridPingPongSRV, "PingPong SRV" );
-    DXUT_SetDebugName( g_pGridPingPongUAV, "PingPong UAV" );
+    V_RETURN(CreateStructuredBuffer< UINT >(pd3dDevice, g_iNumParticles, &g_pGridPingPong, &g_pGridPingPongSRV, &g_pGridPingPongUAV));
+    DXUT_SetDebugName(g_pGridPingPong, "PingPong");
+    DXUT_SetDebugName(g_pGridPingPongSRV, "PingPong SRV");
+    DXUT_SetDebugName(g_pGridPingPongUAV, "PingPong UAV");
 
-    V_RETURN( CreateStructuredBuffer< UINT2 >( pd3dDevice, NUM_GRID_INDICES, &g_pGridIndices, &g_pGridIndicesSRV, &g_pGridIndicesUAV ) );
-    DXUT_SetDebugName( g_pGridIndices, "Indices" );
-    DXUT_SetDebugName( g_pGridIndicesSRV, "Indices SRV" );
-    DXUT_SetDebugName( g_pGridIndicesUAV, "Indices UAV" );
+    V_RETURN(CreateStructuredBuffer< UINT2 >(pd3dDevice, NUM_GRID_INDICES, &g_pGridIndices, &g_pGridIndicesSRV, &g_pGridIndicesUAV));
+    DXUT_SetDebugName(g_pGridIndices, "Indices");
+    DXUT_SetDebugName(g_pGridIndicesSRV, "Indices SRV");
+    DXUT_SetDebugName(g_pGridIndicesUAV, "Indices UAV");
+
+
+    if (g_pGhostGPU)
+    {
+        g_pGhostGPU->ReleaseAll();
+
+        // Create Structured Buffers
+        V_RETURN(CreateStructuredBuffer< Particle >(
+            g_pGhostGPU->m_pd3dDevice,
+            g_iNumParticles,
+            &(g_pGhostGPU->m_pParticles),
+            &(g_pGhostGPU->m_pParticlesSRV),
+            &(g_pGhostGPU->m_pParticlesUAV),
+            particles.get()));
+
+        V_RETURN(CreateStructuredBuffer< Particle >(
+            pd3dDevice,
+            g_iNumParticles,
+            &(g_pGhostGPU->m_pSortedParticles),
+            &(g_pGhostGPU->m_pSortedParticlesSRV),
+            &(g_pGhostGPU->m_pSortedParticlesUAV),
+            particles.get()));
+
+        V_RETURN(CreateStructuredBuffer< ParticleDensity >(
+            g_pGhostGPU->m_pd3dDevice,
+            g_iNumParticles,
+            &(g_pGhostGPU->m_pParticleDensity),
+            &(g_pGhostGPU->m_pParticleDensitySRV),
+            &(g_pGhostGPU->m_pParticleDensityUAV)));
+
+        V_RETURN(CreateStructuredBuffer< ParticleForces >(
+            pd3dDevice,
+            g_iNumParticles,
+            &(g_pGhostGPU->m_pParticleForces),
+            &(g_pGhostGPU->m_pParticleForcesSRV),
+            &(g_pGhostGPU->m_pParticleForcesUAV)));
+    }
 
     return S_OK;
 }
@@ -590,121 +649,147 @@ HRESULT CreateSimulationBuffers( ID3D11Device* pd3dDevice )
 //--------------------------------------------------------------------------------------
 // Create any D3D11 resources that aren't dependant on the back buffer
 //--------------------------------------------------------------------------------------
-HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc,
-                                      void* pUserContext )
+HRESULT CALLBACK OnD3D11CreateDevice(ID3D11Device* pd3dDevice, const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc,
+    void* pUserContext)
 {
     HRESULT hr;
 
     auto pd3dImmediateContext = DXUTGetD3D11DeviceContext();
-    V_RETURN( g_DialogResourceManager.OnD3D11CreateDevice( pd3dDevice, pd3dImmediateContext ) );
-    V_RETURN( g_D3DSettingsDlg.OnD3D11CreateDevice( pd3dDevice ) );
-    g_pTxtHelper = new CDXUTTextHelper( pd3dDevice, pd3dImmediateContext, &g_DialogResourceManager, 15 );
+    V_RETURN(g_DialogResourceManager.OnD3D11CreateDevice(pd3dDevice, pd3dImmediateContext));
+    V_RETURN(g_D3DSettingsDlg.OnD3D11CreateDevice(pd3dDevice));
+    g_pTxtHelper = new CDXUTTextHelper(pd3dDevice, pd3dImmediateContext, &g_DialogResourceManager, 15);
 
     // Compile the Shaders
     ID3DBlob* pBlob = nullptr;
 
     // Rendering Shaders
-    V_RETURN( DXUTCompileFromFile( L"FluidRender.hlsl", nullptr, "ParticleVS", "vs_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateVertexShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pParticleVS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pParticleVS, "ParticleVS" );
+    V_RETURN(DXUTCompileFromFile(L"FluidRender.hlsl", nullptr, "ParticleVS", "vs_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pParticleVS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pParticleVS, "ParticleVS");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidRender.hlsl", nullptr, "ParticleGS", "gs_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateGeometryShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pParticleGS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pParticleGS, "ParticleGS" );
+    V_RETURN(DXUTCompileFromFile(L"FluidRender.hlsl", nullptr, "ParticleGS", "gs_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateGeometryShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pParticleGS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pParticleGS, "ParticleGS");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidRender.hlsl", nullptr, "ParticlePS", "ps_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreatePixelShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pParticlePS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pParticlePS, "ParticlePS" );
+    V_RETURN(DXUTCompileFromFile(L"FluidRender.hlsl", nullptr, "ParticlePS", "ps_4_0", D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pParticlePS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pParticlePS, "ParticlePS");
 
     // Compute Shaders
-    const char* CSTarget = (pd3dDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0)? "cs_5_0" : "cs_4_0";
-    
+    const char* CSTarget = (pd3dDevice->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0) ? "cs_5_0" : "cs_4_0";
+
     CWaitDlg CompilingShadersDlg;
-    CompilingShadersDlg.ShowDialog( L"Compiling Shaders..." );
+    CompilingShadersDlg.ShowDialog(L"Compiling Shaders...");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "IntegrateCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pIntegrateCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pIntegrateCS, "IntegrateCS" );
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "IntegrateCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pIntegrateCS));
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "DensityCS_Simple", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pDensity_SimpleCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pDensity_SimpleCS, "DensityCS_Simple" );
+    if (g_pGhostGPU)
+    {
+        V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pIntegrateCS)));
+    }
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "ForceCS_Simple", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pForce_SimpleCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pForce_SimpleCS, "ForceCS_Simple" );
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pIntegrateCS, "IntegrateCS");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "DensityCS_Shared", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pDensity_SharedCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pDensity_SharedCS, "DensityCS_Shared" );
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "DensityCS_Simple", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pDensity_SimpleCS));
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "ForceCS_Shared", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pForce_SharedCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pForce_SharedCS, "ForceCS_Shared" );
+    if (g_pGhostGPU)
+    {
+        V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pDensity_SimpleCS)));
+    }
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "DensityCS_Grid", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pDensity_GridCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pDensity_GridCS, "DensityCS_Grid" );
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pDensity_SimpleCS, "DensityCS_Simple");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "ForceCS_Grid", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pForce_GridCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pForce_GridCS, "ForceCS_Grid" );
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "ForceCS_Simple", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pForce_SimpleCS));
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "BuildGridCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pBuildGridCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pBuildGridCS, "BuildGridCS" );
+    if (g_pGhostGPU)
+    {
+        V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pForce_SimpleCS)));
+    }
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "ClearGridIndicesCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pClearGridIndicesCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pClearGridIndicesCS, "ClearGridIndicesCS" );
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pForce_SimpleCS, "ForceCS_Simple");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "BuildGridIndicesCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pBuildGridIndicesCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pBuildGridIndicesCS, "BuildGridIndicesCS" );
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "DensityCS_Shared", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pDensity_SharedCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pDensity_SharedCS, "DensityCS_Shared");
 
-    V_RETURN( DXUTCompileFromFile( L"FluidCS11.hlsl", nullptr, "RearrangeParticlesCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pRearrangeParticlesCS ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pRearrangeParticlesCS, "RearrangeParticlesCS" );
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "ForceCS_Shared", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pForce_SharedCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pForce_SharedCS, "ForceCS_Shared");
+
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "DensityCS_Grid", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pDensity_GridCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pDensity_GridCS, "DensityCS_Grid");
+
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "ForceCS_Grid", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pForce_GridCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pForce_GridCS, "ForceCS_Grid");
+
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "BuildGridCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pBuildGridCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pBuildGridCS, "BuildGridCS");
+
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "ClearGridIndicesCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pClearGridIndicesCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pClearGridIndicesCS, "ClearGridIndicesCS");
+
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "BuildGridIndicesCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pBuildGridIndicesCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pBuildGridIndicesCS, "BuildGridIndicesCS");
+
+    V_RETURN(DXUTCompileFromFile(L"FluidCS11.hlsl", nullptr, "RearrangeParticlesCS", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pRearrangeParticlesCS));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pRearrangeParticlesCS, "RearrangeParticlesCS");
 
     // Sort Shaders
-    V_RETURN( DXUTCompileFromFile( L"ComputeShaderSort11.hlsl", nullptr, "BitonicSort", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pSortBitonic ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pSortBitonic, "BitonicSort" );
+    V_RETURN(DXUTCompileFromFile(L"ComputeShaderSort11.hlsl", nullptr, "BitonicSort", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pSortBitonic));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pSortBitonic, "BitonicSort");
 
-    V_RETURN( DXUTCompileFromFile( L"ComputeShaderSort11.hlsl", nullptr, "MatrixTranspose", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob ) );
-    V_RETURN( pd3dDevice->CreateComputeShader( pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pSortTranspose ) );
-    SAFE_RELEASE( pBlob );
-    DXUT_SetDebugName( g_pSortTranspose, "MatrixTranspose" );
+    V_RETURN(DXUTCompileFromFile(L"ComputeShaderSort11.hlsl", nullptr, "MatrixTranspose", CSTarget, D3DCOMPILE_ENABLE_STRICTNESS, 0, &pBlob));
+    V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &g_pSortTranspose));
+    SAFE_RELEASE(pBlob);
+    DXUT_SetDebugName(g_pSortTranspose, "MatrixTranspose");
 
     CompilingShadersDlg.DestroyDialog();
 
     // Create the Simulation Buffers
-    V_RETURN( CreateSimulationBuffers( pd3dDevice ) );
+    V_RETURN(CreateSimulationBuffers(pd3dDevice));
 
     // Create Constant Buffers
-    V_RETURN( CreateConstantBuffer< CBSimulationConstants >( pd3dDevice, &g_pcbSimulationConstants ) );
-    V_RETURN( CreateConstantBuffer< CBRenderConstants >( pd3dDevice, &g_pcbRenderConstants ) );
+    V_RETURN(CreateConstantBuffer< CBSimulationConstants >(pd3dDevice, &g_pcbSimulationConstants));
 
-    V_RETURN( CreateConstantBuffer< SortCB >( pd3dDevice, &g_pSortCB ) );
+    if (g_pGhostGPU)
+    {
+        V_RETURN(CreateConstantBuffer< CBSimulationConstants >(
+            g_pGhostGPU->m_pd3dDevice,
+            &g_pGhostGPU->m_pcbSimulationConstants));
+    }
 
-    DXUT_SetDebugName( g_pcbSimulationConstants, "Simluation" );
-    DXUT_SetDebugName( g_pcbRenderConstants, "Render" );
-    DXUT_SetDebugName( g_pSortCB, "Sort" );
+    V_RETURN(CreateConstantBuffer< CBRenderConstants >(pd3dDevice, &g_pcbRenderConstants));
+
+    V_RETURN(CreateConstantBuffer< SortCB >(pd3dDevice, &g_pSortCB));
+
+    DXUT_SetDebugName(g_pcbSimulationConstants, "Simluation");
+    DXUT_SetDebugName(g_pcbRenderConstants, "Render");
+    DXUT_SetDebugName(g_pSortCB, "Sort");
 
     return S_OK;
 }
@@ -713,18 +798,18 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
 //--------------------------------------------------------------------------------------
 // Create any D3D11 resources that depend on the back buffer
 //--------------------------------------------------------------------------------------
-HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapChain* pSwapChain,
-                                          const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc, void* pUserContext )
+HRESULT CALLBACK OnD3D11ResizedSwapChain(ID3D11Device* pd3dDevice, IDXGISwapChain* pSwapChain,
+    const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc, void* pUserContext)
 {
     HRESULT hr;
 
-    V_RETURN( g_DialogResourceManager.OnD3D11ResizedSwapChain( pd3dDevice, pBackBufferSurfaceDesc ) );
-    V_RETURN( g_D3DSettingsDlg.OnD3D11ResizedSwapChain( pd3dDevice, pBackBufferSurfaceDesc ) );
+    V_RETURN(g_DialogResourceManager.OnD3D11ResizedSwapChain(pd3dDevice, pBackBufferSurfaceDesc));
+    V_RETURN(g_D3DSettingsDlg.OnD3D11ResizedSwapChain(pd3dDevice, pBackBufferSurfaceDesc));
 
-    g_HUD.SetLocation( pBackBufferSurfaceDesc->Width - 170, 0 );
-    g_HUD.SetSize( 170, 170 );
-    g_SampleUI.SetLocation( pBackBufferSurfaceDesc->Width - 170, pBackBufferSurfaceDesc->Height - 400 );
-    g_SampleUI.SetSize( 170, 300 );
+    g_HUD.SetLocation(pBackBufferSurfaceDesc->Width - 170, 0);
+    g_HUD.SetSize(170, 170);
+    g_SampleUI.SetLocation(pBackBufferSurfaceDesc->Width - 170, pBackBufferSurfaceDesc->Height - 400);
+    g_SampleUI.SetSize(170, 300);
 
     return S_OK;
 }
@@ -735,10 +820,10 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 // For more information, please see the ComputeShaderSort11 sample
 //--------------------------------------------------------------------------------------
 void GPUSort(ID3D11DeviceContext* pd3dImmediateContext,
-             ID3D11UnorderedAccessView* inUAV, ID3D11ShaderResourceView* inSRV,
-             ID3D11UnorderedAccessView* tempUAV, ID3D11ShaderResourceView* tempSRV)
+    ID3D11UnorderedAccessView* inUAV, ID3D11ShaderResourceView* inSRV,
+    ID3D11UnorderedAccessView* tempUAV, ID3D11ShaderResourceView* tempSRV)
 {
-    pd3dImmediateContext->CSSetConstantBuffers( 0, 1, &g_pSortCB );
+    pd3dImmediateContext->CSSetConstantBuffers(0, 1, &g_pSortCB);
 
     const UINT NUM_ELEMENTS = g_iNumParticles;
     const UINT MATRIX_WIDTH = BITONIC_BLOCK_SIZE;
@@ -746,51 +831,51 @@ void GPUSort(ID3D11DeviceContext* pd3dImmediateContext,
 
     // Sort the data
     // First sort the rows for the levels <= to the block size
-    for( UINT level = 2 ; level <= BITONIC_BLOCK_SIZE ; level <<= 1 )
+    for (UINT level = 2; level <= BITONIC_BLOCK_SIZE; level <<= 1)
     {
         SortCB constants = { level, level, MATRIX_HEIGHT, MATRIX_WIDTH };
-        pd3dImmediateContext->UpdateSubresource( g_pSortCB, 0, nullptr, &constants, 0, 0 );
+        pd3dImmediateContext->UpdateSubresource(g_pSortCB, 0, nullptr, &constants, 0, 0);
 
         // Sort the row data
         UINT UAVInitialCounts = 0;
-        pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &inUAV, &UAVInitialCounts );
-        pd3dImmediateContext->CSSetShader( g_pSortBitonic, nullptr, 0 );
-        pd3dImmediateContext->Dispatch( NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1 );
+        pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &inUAV, &UAVInitialCounts);
+        pd3dImmediateContext->CSSetShader(g_pSortBitonic, nullptr, 0);
+        pd3dImmediateContext->Dispatch(NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1);
     }
 
     // Then sort the rows and columns for the levels > than the block size
     // Transpose. Sort the Columns. Transpose. Sort the Rows.
-    for( UINT level = (BITONIC_BLOCK_SIZE << 1) ; level <= NUM_ELEMENTS ; level <<= 1 )
+    for (UINT level = (BITONIC_BLOCK_SIZE << 1); level <= NUM_ELEMENTS; level <<= 1)
     {
         SortCB constants1 = { (level / BITONIC_BLOCK_SIZE), (level & ~NUM_ELEMENTS) / BITONIC_BLOCK_SIZE, MATRIX_WIDTH, MATRIX_HEIGHT };
-        pd3dImmediateContext->UpdateSubresource( g_pSortCB, 0, nullptr, &constants1, 0, 0 );
+        pd3dImmediateContext->UpdateSubresource(g_pSortCB, 0, nullptr, &constants1, 0, 0);
 
         // Transpose the data from buffer 1 into buffer 2
         ID3D11ShaderResourceView* pViewNULL = nullptr;
         UINT UAVInitialCounts = 0;
-        pd3dImmediateContext->CSSetShaderResources( 0, 1, &pViewNULL );
-        pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &tempUAV, &UAVInitialCounts );
-        pd3dImmediateContext->CSSetShaderResources( 0, 1, &inSRV );
-        pd3dImmediateContext->CSSetShader( g_pSortTranspose, nullptr, 0 );
-        pd3dImmediateContext->Dispatch( MATRIX_WIDTH / TRANSPOSE_BLOCK_SIZE, MATRIX_HEIGHT / TRANSPOSE_BLOCK_SIZE, 1 );
+        pd3dImmediateContext->CSSetShaderResources(0, 1, &pViewNULL);
+        pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &tempUAV, &UAVInitialCounts);
+        pd3dImmediateContext->CSSetShaderResources(0, 1, &inSRV);
+        pd3dImmediateContext->CSSetShader(g_pSortTranspose, nullptr, 0);
+        pd3dImmediateContext->Dispatch(MATRIX_WIDTH / TRANSPOSE_BLOCK_SIZE, MATRIX_HEIGHT / TRANSPOSE_BLOCK_SIZE, 1);
 
         // Sort the transposed column data
-        pd3dImmediateContext->CSSetShader( g_pSortBitonic, nullptr, 0 );
-        pd3dImmediateContext->Dispatch( NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1 );
+        pd3dImmediateContext->CSSetShader(g_pSortBitonic, nullptr, 0);
+        pd3dImmediateContext->Dispatch(NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1);
 
         SortCB constants2 = { BITONIC_BLOCK_SIZE, level, MATRIX_HEIGHT, MATRIX_WIDTH };
-        pd3dImmediateContext->UpdateSubresource( g_pSortCB, 0, nullptr, &constants2, 0, 0 );
+        pd3dImmediateContext->UpdateSubresource(g_pSortCB, 0, nullptr, &constants2, 0, 0);
 
         // Transpose the data from buffer 2 back into buffer 1
-        pd3dImmediateContext->CSSetShaderResources( 0, 1, &pViewNULL );
-        pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &inUAV, &UAVInitialCounts );
-        pd3dImmediateContext->CSSetShaderResources( 0, 1, &tempSRV );
-        pd3dImmediateContext->CSSetShader( g_pSortTranspose, nullptr, 0 );
-        pd3dImmediateContext->Dispatch( MATRIX_HEIGHT / TRANSPOSE_BLOCK_SIZE, MATRIX_WIDTH / TRANSPOSE_BLOCK_SIZE, 1 );
+        pd3dImmediateContext->CSSetShaderResources(0, 1, &pViewNULL);
+        pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &inUAV, &UAVInitialCounts);
+        pd3dImmediateContext->CSSetShaderResources(0, 1, &tempSRV);
+        pd3dImmediateContext->CSSetShader(g_pSortTranspose, nullptr, 0);
+        pd3dImmediateContext->Dispatch(MATRIX_HEIGHT / TRANSPOSE_BLOCK_SIZE, MATRIX_WIDTH / TRANSPOSE_BLOCK_SIZE, 1);
 
         // Sort the row data
-        pd3dImmediateContext->CSSetShader( g_pSortBitonic, nullptr, 0 );
-        pd3dImmediateContext->Dispatch( NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1 );
+        pd3dImmediateContext->CSSetShader(g_pSortBitonic, nullptr, 0);
+        pd3dImmediateContext->Dispatch(NUM_ELEMENTS / BITONIC_BLOCK_SIZE, 1, 1);
     }
 }
 
@@ -798,64 +883,93 @@ void GPUSort(ID3D11DeviceContext* pd3dImmediateContext,
 //--------------------------------------------------------------------------------------
 // GPU Fluid Simulation - Simple N^2 Algorithm
 //--------------------------------------------------------------------------------------
-void SimulateFluid_Simple( ID3D11DeviceContext* pd3dImmediateContext )
+void SimulateFluid_Simple(ID3D11DeviceContext* pd3dImmediateContext)
 {
     UINT UAVInitialCounts = 0;
 
     // Setup
-    pd3dImmediateContext->CSSetConstantBuffers( 0, 1, &g_pcbSimulationConstants );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pParticlesSRV );
+    pd3dImmediateContext->CSSetConstantBuffers(0, 1, &g_pcbSimulationConstants);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pParticlesSRV);
 
     // Density
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticleDensityUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShader( g_pDensity_SimpleCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticleDensityUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShader(g_pDensity_SimpleCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Force
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticleForcesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 1, 1, &g_pParticleDensitySRV );
-    pd3dImmediateContext->CSSetShader( g_pForce_SimpleCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticleForcesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(1, 1, &g_pParticleDensitySRV);
+    pd3dImmediateContext->CSSetShader(g_pForce_SimpleCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Integrate
-    pd3dImmediateContext->CopyResource( g_pSortedParticles, g_pParticles );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pSortedParticlesSRV );
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticlesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 2, 1, &g_pParticleForcesSRV );
-    pd3dImmediateContext->CSSetShader( g_pIntegrateCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CopyResource(g_pSortedParticles, g_pParticles);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pSortedParticlesSRV);
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticlesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(2, 1, &g_pParticleForcesSRV);
+    pd3dImmediateContext->CSSetShader(g_pIntegrateCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
+}
+
+
+void Ghost_SimulateFluid_Simple(ID3D11DeviceContext* pd3dImmediateContext)
+{
+    UINT UAVInitialCounts = 0;
+
+    // Setup
+    pd3dImmediateContext->CSSetConstantBuffers(0, 1, &(g_pGhostGPU->m_pcbSimulationConstants));
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &(g_pGhostGPU->m_pParticlesSRV));
+
+    // Density
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &(g_pGhostGPU->m_pParticleDensityUAV), &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShader(g_pGhostGPU->m_pDensity_SimpleCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
+
+    // Force
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &(g_pGhostGPU->m_pParticleForcesUAV), &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(1, 1, &(g_pGhostGPU->m_pParticleDensitySRV));
+    pd3dImmediateContext->CSSetShader(g_pGhostGPU->m_pForce_SimpleCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
+
+    // Integrate
+    pd3dImmediateContext->CopyResource(g_pGhostGPU->m_pSortedParticles, g_pGhostGPU->m_pParticles);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &(g_pGhostGPU->m_pSortedParticlesSRV));
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &(g_pGhostGPU->m_pParticlesUAV), &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(2, 1, &(g_pGhostGPU->m_pParticleForcesSRV));
+    pd3dImmediateContext->CSSetShader(g_pGhostGPU->m_pIntegrateCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 }
 
 
 //--------------------------------------------------------------------------------------
 // GPU Fluid Simulation - Optimized N^2 Algorithm using Shared Memory
 //--------------------------------------------------------------------------------------
-void SimulateFluid_Shared( ID3D11DeviceContext* pd3dImmediateContext )
+void SimulateFluid_Shared(ID3D11DeviceContext* pd3dImmediateContext)
 {
     UINT UAVInitialCounts = 0;
 
     // Setup
-    pd3dImmediateContext->CSSetConstantBuffers( 0, 1, &g_pcbSimulationConstants );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pParticlesSRV );
+    pd3dImmediateContext->CSSetConstantBuffers(0, 1, &g_pcbSimulationConstants);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pParticlesSRV);
 
     // Density
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticleDensityUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShader( g_pDensity_SharedCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticleDensityUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShader(g_pDensity_SharedCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Force
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticleForcesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 1, 1, &g_pParticleDensitySRV );
-    pd3dImmediateContext->CSSetShader( g_pForce_SharedCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticleForcesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(1, 1, &g_pParticleDensitySRV);
+    pd3dImmediateContext->CSSetShader(g_pForce_SharedCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Integrate
-    pd3dImmediateContext->CopyResource( g_pSortedParticles, g_pParticles );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pSortedParticlesSRV );
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticlesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 2, 1, &g_pParticleForcesSRV );
-    pd3dImmediateContext->CSSetShader( g_pIntegrateCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CopyResource(g_pSortedParticles, g_pParticles);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pSortedParticlesSRV);
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticlesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(2, 1, &g_pParticleForcesSRV);
+    pd3dImmediateContext->CSSetShader(g_pIntegrateCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 }
 
 
@@ -870,72 +984,72 @@ void SimulateFluid_Shared( ID3D11DeviceContext* pd3dImmediateContext )
 //    Density, Force, Integrate: Perform the normal fluid simulation algorithm
 //        Except now, only calculate particles from the 8 adjacent cells + current cell
 //--------------------------------------------------------------------------------------
-void SimulateFluid_Grid( ID3D11DeviceContext* pd3dImmediateContext )
+void SimulateFluid_Grid(ID3D11DeviceContext* pd3dImmediateContext)
 {
     UINT UAVInitialCounts = 0;
 
     // Setup
-    pd3dImmediateContext->CSSetConstantBuffers( 0, 1, &g_pcbSimulationConstants );
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pGridUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pParticlesSRV );
+    pd3dImmediateContext->CSSetConstantBuffers(0, 1, &g_pcbSimulationConstants);
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pGridUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pParticlesSRV);
 
     // Build Grid
-    pd3dImmediateContext->CSSetShader( g_pBuildGridCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetShader(g_pBuildGridCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Sort Grid
     GPUSort(pd3dImmediateContext, g_pGridUAV, g_pGridSRV, g_pGridPingPongUAV, g_pGridPingPongSRV);
 
     // Setup
-    pd3dImmediateContext->CSSetConstantBuffers( 0, 1, &g_pcbSimulationConstants );
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pGridIndicesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 3, 1, &g_pGridSRV );
+    pd3dImmediateContext->CSSetConstantBuffers(0, 1, &g_pcbSimulationConstants);
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pGridIndicesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(3, 1, &g_pGridSRV);
 
     // Build Grid Indices
-    pd3dImmediateContext->CSSetShader( g_pClearGridIndicesCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( NUM_GRID_INDICES / SIMULATION_BLOCK_SIZE, 1, 1 );
-    pd3dImmediateContext->CSSetShader( g_pBuildGridIndicesCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetShader(g_pClearGridIndicesCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(NUM_GRID_INDICES / SIMULATION_BLOCK_SIZE, 1, 1);
+    pd3dImmediateContext->CSSetShader(g_pBuildGridIndicesCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Setup
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pSortedParticlesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pParticlesSRV );
-    pd3dImmediateContext->CSSetShaderResources( 3, 1, &g_pGridSRV );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pSortedParticlesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pParticlesSRV);
+    pd3dImmediateContext->CSSetShaderResources(3, 1, &g_pGridSRV);
 
     // Rearrange
-    pd3dImmediateContext->CSSetShader( g_pRearrangeParticlesCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetShader(g_pRearrangeParticlesCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Setup
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pNullUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pNullSRV );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pSortedParticlesSRV );
-    pd3dImmediateContext->CSSetShaderResources( 3, 1, &g_pGridSRV );
-    pd3dImmediateContext->CSSetShaderResources( 4, 1, &g_pGridIndicesSRV );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pNullUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pNullSRV);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pSortedParticlesSRV);
+    pd3dImmediateContext->CSSetShaderResources(3, 1, &g_pGridSRV);
+    pd3dImmediateContext->CSSetShaderResources(4, 1, &g_pGridIndicesSRV);
 
     // Density
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticleDensityUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShader( g_pDensity_GridCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticleDensityUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShader(g_pDensity_GridCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Force
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticleForcesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 1, 1, &g_pParticleDensitySRV );
-    pd3dImmediateContext->CSSetShader( g_pForce_GridCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticleForcesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(1, 1, &g_pParticleDensitySRV);
+    pd3dImmediateContext->CSSetShader(g_pForce_GridCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 
     // Integrate
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pParticlesUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 2, 1, &g_pParticleForcesSRV );
-    pd3dImmediateContext->CSSetShader( g_pIntegrateCS, nullptr, 0 );
-    pd3dImmediateContext->Dispatch( g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1 );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pParticlesUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(2, 1, &g_pParticleForcesSRV);
+    pd3dImmediateContext->CSSetShader(g_pIntegrateCS, nullptr, 0);
+    pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
 }
 
 
 //--------------------------------------------------------------------------------------
 // GPU Fluid Simulation
 //--------------------------------------------------------------------------------------
-void SimulateFluid( ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime )
+void SimulateFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime)
 {
     UINT UAVInitialCounts = 0;
 
@@ -945,7 +1059,7 @@ void SimulateFluid( ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTim
     // Simulation Constants
     pData.iNumParticles = g_iNumParticles;
     // Clamp the time step when the simulation runs slowly to prevent numerical explosion
-    pData.fTimeStep = std::min( g_fMaxAllowableTimeStep, fElapsedTime );
+    pData.fTimeStep = std::min(g_fMaxAllowableTimeStep, fElapsedTime);
     pData.fSmoothlen = g_fSmoothlen;
     pData.fPressureStiffness = g_fPressureStiffness;
     pData.fRestDensity = g_fRestDensity;
@@ -954,7 +1068,7 @@ void SimulateFluid( ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTim
     pData.fLapViscosityCoef = g_fParticleMass * g_fViscosity * 45.0f / (XM_PI * powf(g_fSmoothlen, 6));
 
     pData.vGravity = g_vGravity;
-    
+
     // Cells are spaced the size of the smoothing length search radius
     // That way we only need to search the 8 adjacent cells + current cell
     pData.vGridDim.x = 1.0f / g_fSmoothlen;
@@ -969,105 +1083,123 @@ void SimulateFluid( ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTim
     pData.vPlanes[2] = g_vPlanes[2];
     pData.vPlanes[3] = g_vPlanes[3];
 
-    pd3dImmediateContext->UpdateSubresource( g_pcbSimulationConstants, 0, nullptr, &pData, 0, 0 );
+    pd3dImmediateContext->UpdateSubresource(g_pcbSimulationConstants, 0, nullptr, &pData, 0, 0);
+
+    if (g_pGhostGPU)
+    {
+        g_pGhostGPU->m_pd3dImmediateContext->UpdateSubresource(g_pGhostGPU->m_pcbSimulationConstants, 0, nullptr, &pData, 0, 0);
+    }
 
     switch (g_eSimMode) {
         // Simple N^2 Algorithm
-        case SIM_MODE_SIMPLE:
-            SimulateFluid_Simple( pd3dImmediateContext );
-            break;
+    case SIM_MODE_SIMPLE:
+        if (g_pGhostGPU)
+        {
+            Ghost_SimulateFluid_Simple(g_pGhostGPU->m_pd3dImmediateContext);
+
+            g_pGhostGPU->m_pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pNullUAV, &UAVInitialCounts);
+            g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pNullSRV);
+            g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(1, 1, &g_pNullSRV);
+            g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(2, 1, &g_pNullSRV);
+            g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(3, 1, &g_pNullSRV);
+            g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(4, 1, &g_pNullSRV);
+        }
+
+        SimulateFluid_Simple(pd3dImmediateContext);
+
+        break;
 
         // Optimized N^2 Algorithm using Shared Memory
-        case SIM_MODE_SHARED:
-            SimulateFluid_Shared( pd3dImmediateContext );
-            break;
+    case SIM_MODE_SHARED:
+        SimulateFluid_Shared(pd3dImmediateContext);
+        break;
 
         // Optimized Grid + Sort Algorithm
-        case SIM_MODE_GRID:
-            SimulateFluid_Grid( pd3dImmediateContext );
-            break;
+    case SIM_MODE_GRID:
+        SimulateFluid_Grid(pd3dImmediateContext);
+        break;
     }
 
     // Unset
-    pd3dImmediateContext->CSSetUnorderedAccessViews( 0, 1, &g_pNullUAV, &UAVInitialCounts );
-    pd3dImmediateContext->CSSetShaderResources( 0, 1, &g_pNullSRV );
-    pd3dImmediateContext->CSSetShaderResources( 1, 1, &g_pNullSRV );
-    pd3dImmediateContext->CSSetShaderResources( 2, 1, &g_pNullSRV );
-    pd3dImmediateContext->CSSetShaderResources( 3, 1, &g_pNullSRV );
-    pd3dImmediateContext->CSSetShaderResources( 4, 1, &g_pNullSRV );
+    pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pNullUAV, &UAVInitialCounts);
+    pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pNullSRV);
+    pd3dImmediateContext->CSSetShaderResources(1, 1, &g_pNullSRV);
+    pd3dImmediateContext->CSSetShaderResources(2, 1, &g_pNullSRV);
+    pd3dImmediateContext->CSSetShaderResources(3, 1, &g_pNullSRV);
+    pd3dImmediateContext->CSSetShaderResources(4, 1, &g_pNullSRV);
 }
 
 
 //--------------------------------------------------------------------------------------
 // GPU Fluid Rendering
 //--------------------------------------------------------------------------------------
-void RenderFluid( ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime )
+void RenderFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime)
 {
     // Simple orthographic projection to display the entire map
-    XMMATRIX mView = XMMatrixTranslation( -g_fMapWidth / 2.0f, -g_fMapHeight / 2.0f, 0 );
-    XMMATRIX mProjection = XMMatrixOrthographicLH( g_fMapWidth, g_fMapHeight, 0, 1 );
+    XMMATRIX mView = XMMatrixTranslation(-g_fMapWidth / 2.0f, -g_fMapHeight / 2.0f, 0);
+    XMMATRIX mProjection = XMMatrixOrthographicLH(g_fMapWidth, g_fMapHeight, 0, 1);
     XMMATRIX mViewProjection = mView * mProjection;
 
     // Update Constants
     CBRenderConstants pData = {};
 
-    XMStoreFloat4x4( &pData.mViewProjection, XMMatrixTranspose( mViewProjection ) );
+    XMStoreFloat4x4(&pData.mViewProjection, XMMatrixTranspose(mViewProjection));
     pData.fParticleSize = g_fParticleRenderSize;
 
-    pd3dImmediateContext->UpdateSubresource( g_pcbRenderConstants, 0, nullptr, &pData, 0, 0 );
+    pd3dImmediateContext->UpdateSubresource(g_pcbRenderConstants, 0, nullptr, &pData, 0, 0);
 
     // Set the shaders
-    pd3dImmediateContext->VSSetShader( g_pParticleVS, nullptr, 0 );
-    pd3dImmediateContext->GSSetShader( g_pParticleGS, nullptr, 0 );
-    pd3dImmediateContext->PSSetShader( g_pParticlePS, nullptr, 0 );
+    pd3dImmediateContext->VSSetShader(g_pParticleVS, nullptr, 0);
+    pd3dImmediateContext->GSSetShader(g_pParticleGS, nullptr, 0);
+    pd3dImmediateContext->PSSetShader(g_pParticlePS, nullptr, 0);
 
     // Set the constant buffers
-    pd3dImmediateContext->VSSetConstantBuffers( 0, 1, &g_pcbRenderConstants );
-    pd3dImmediateContext->GSSetConstantBuffers( 0, 1, &g_pcbRenderConstants );
-    pd3dImmediateContext->PSSetConstantBuffers( 0, 1, &g_pcbRenderConstants );
+    pd3dImmediateContext->VSSetConstantBuffers(0, 1, &g_pcbRenderConstants);
+    pd3dImmediateContext->GSSetConstantBuffers(0, 1, &g_pcbRenderConstants);
+    pd3dImmediateContext->PSSetConstantBuffers(0, 1, &g_pcbRenderConstants);
 
     // Setup the particles buffer and IA
-    pd3dImmediateContext->VSSetShaderResources( 0, 1, &g_pParticlesSRV );
-    pd3dImmediateContext->VSSetShaderResources( 1, 1, &g_pParticleDensitySRV );
-    pd3dImmediateContext->IASetVertexBuffers( 0, 1, &g_pNullBuffer, &g_iNullUINT, &g_iNullUINT );
-    pd3dImmediateContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_POINTLIST );
+    pd3dImmediateContext->VSSetShaderResources(0, 1, &g_pParticlesSRV);
+    pd3dImmediateContext->VSSetShaderResources(1, 1, &g_pParticleDensitySRV);
+    pd3dImmediateContext->IASetVertexBuffers(0, 1, &g_pNullBuffer, &g_iNullUINT, &g_iNullUINT);
+    pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
 
     // Draw the mesh
-    pd3dImmediateContext->Draw( g_iNumParticles, 0 );
+    pd3dImmediateContext->Draw(g_iNumParticles, 0);
 
     // Unset the particles buffer
-    pd3dImmediateContext->VSSetShaderResources( 0, 1, &g_pNullSRV );
-    pd3dImmediateContext->VSSetShaderResources( 1, 1, &g_pNullSRV );
+    pd3dImmediateContext->VSSetShaderResources(0, 1, &g_pNullSRV);
+    pd3dImmediateContext->VSSetShaderResources(1, 1, &g_pNullSRV);
 }
 
 
 //--------------------------------------------------------------------------------------
 // Render the scene using the D3D11 device
 //--------------------------------------------------------------------------------------
-void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext, double fTime,
-                                  float fElapsedTime, void* pUserContext )
+void CALLBACK OnD3D11FrameRender(ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext, double fTime,
+    float fElapsedTime, void* pUserContext)
 {
     // If the settings dialog is being shown, then render it instead of rendering the app's scene
-    if( g_D3DSettingsDlg.IsActive() )
+    if (g_D3DSettingsDlg.IsActive())
     {
-        g_D3DSettingsDlg.OnRender( fElapsedTime );
+        g_D3DSettingsDlg.OnRender(fElapsedTime);
         return;
     }
 
     // Clear the render target and depth stencil
     auto pRTV = DXUTGetD3D11RenderTargetView();
-    pd3dImmediateContext->ClearRenderTargetView( pRTV, Colors::Black );
+    pd3dImmediateContext->ClearRenderTargetView(pRTV, Colors::Black);
     auto pDSV = DXUTGetD3D11DepthStencilView();
-    pd3dImmediateContext->ClearDepthStencilView( pDSV, D3D11_CLEAR_DEPTH, 1.0, 0 );
+    pd3dImmediateContext->ClearDepthStencilView(pDSV, D3D11_CLEAR_DEPTH, 1.0, 0);
 
-    SimulateFluid( pd3dImmediateContext, fElapsedTime );
+    SimulateFluid(pd3dImmediateContext, fElapsedTime);
 
-    RenderFluid( pd3dImmediateContext, fElapsedTime );
+    RenderFluid(pd3dImmediateContext, fElapsedTime);
 
     // Render the HUD
-    DXUT_BeginPerfEvent( DXUT_PERFEVENTCOLOR, L"HUD / Stats" );
-    g_HUD.OnRender( fElapsedTime );
-    g_SampleUI.OnRender( fElapsedTime );
+    DXUT_BeginPerfEvent(DXUT_PERFEVENTCOLOR, L"HUD / Stats");
+    g_HUD.OnRender(fElapsedTime);
+    g_SampleUI.OnRender(fElapsedTime);
     RenderText();
     DXUT_EndPerfEvent();
 }
@@ -1076,7 +1208,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 //--------------------------------------------------------------------------------------
 // Release D3D11 resources created in OnD3D11ResizedSwapChain 
 //--------------------------------------------------------------------------------------
-void CALLBACK OnD3D11ReleasingSwapChain( void* pUserContext )
+void CALLBACK OnD3D11ReleasingSwapChain(void* pUserContext)
 {
     g_DialogResourceManager.OnD3D11ReleasingSwapChain();
 }
@@ -1085,60 +1217,65 @@ void CALLBACK OnD3D11ReleasingSwapChain( void* pUserContext )
 //--------------------------------------------------------------------------------------
 // Release D3D11 resources created in OnD3D11CreateDevice 
 //--------------------------------------------------------------------------------------
-void CALLBACK OnD3D11DestroyDevice( void* pUserContext )
+void CALLBACK OnD3D11DestroyDevice(void* pUserContext)
 {
     g_DialogResourceManager.OnD3D11DestroyDevice();
     g_D3DSettingsDlg.OnD3D11DestroyDevice();
     DXUTGetGlobalResourceCache().OnDestroyDevice();
-    SAFE_DELETE( g_pTxtHelper );
+    SAFE_DELETE(g_pTxtHelper);
 
-    SAFE_RELEASE( g_pcbSimulationConstants );
-    SAFE_RELEASE( g_pcbRenderConstants );
-    SAFE_RELEASE( g_pSortCB );
+    SAFE_RELEASE(g_pcbSimulationConstants);
+    SAFE_RELEASE(g_pcbRenderConstants);
+    SAFE_RELEASE(g_pSortCB);
 
-    SAFE_RELEASE( g_pParticleVS );
-    SAFE_RELEASE( g_pParticleGS );
-    SAFE_RELEASE( g_pParticlePS );
+    SAFE_RELEASE(g_pParticleVS);
+    SAFE_RELEASE(g_pParticleGS);
+    SAFE_RELEASE(g_pParticlePS);
 
-    SAFE_RELEASE( g_pIntegrateCS );
-    SAFE_RELEASE( g_pDensity_SimpleCS );
-    SAFE_RELEASE( g_pForce_SimpleCS );
-    SAFE_RELEASE( g_pDensity_SharedCS );
-    SAFE_RELEASE( g_pForce_SharedCS );
-    SAFE_RELEASE( g_pDensity_GridCS );
-    SAFE_RELEASE( g_pForce_GridCS );
-    SAFE_RELEASE( g_pBuildGridCS );
-    SAFE_RELEASE( g_pClearGridIndicesCS );
-    SAFE_RELEASE( g_pBuildGridIndicesCS );
-    SAFE_RELEASE( g_pRearrangeParticlesCS );
-    SAFE_RELEASE( g_pSortBitonic );
-    SAFE_RELEASE( g_pSortTranspose );
+    SAFE_RELEASE(g_pIntegrateCS);
+    SAFE_RELEASE(g_pDensity_SimpleCS);
+    SAFE_RELEASE(g_pForce_SimpleCS);
+    SAFE_RELEASE(g_pDensity_SharedCS);
+    SAFE_RELEASE(g_pForce_SharedCS);
+    SAFE_RELEASE(g_pDensity_GridCS);
+    SAFE_RELEASE(g_pForce_GridCS);
+    SAFE_RELEASE(g_pBuildGridCS);
+    SAFE_RELEASE(g_pClearGridIndicesCS);
+    SAFE_RELEASE(g_pBuildGridIndicesCS);
+    SAFE_RELEASE(g_pRearrangeParticlesCS);
+    SAFE_RELEASE(g_pSortBitonic);
+    SAFE_RELEASE(g_pSortTranspose);
 
-    SAFE_RELEASE( g_pParticles );
-    SAFE_RELEASE( g_pParticlesSRV );
-    SAFE_RELEASE( g_pParticlesUAV );
-    
-    SAFE_RELEASE( g_pSortedParticles );
-    SAFE_RELEASE( g_pSortedParticlesSRV );
-    SAFE_RELEASE( g_pSortedParticlesUAV );
+    SAFE_RELEASE(g_pParticles);
+    SAFE_RELEASE(g_pParticlesSRV);
+    SAFE_RELEASE(g_pParticlesUAV);
 
-    SAFE_RELEASE( g_pParticleForces );
-    SAFE_RELEASE( g_pParticleForcesSRV );
-    SAFE_RELEASE( g_pParticleForcesUAV );
-    
-    SAFE_RELEASE( g_pParticleDensity );
-    SAFE_RELEASE( g_pParticleDensitySRV );
-    SAFE_RELEASE( g_pParticleDensityUAV );
+    SAFE_RELEASE(g_pSortedParticles);
+    SAFE_RELEASE(g_pSortedParticlesSRV);
+    SAFE_RELEASE(g_pSortedParticlesUAV);
 
-    SAFE_RELEASE( g_pGridSRV );
-    SAFE_RELEASE( g_pGridUAV );
-    SAFE_RELEASE( g_pGrid );
+    SAFE_RELEASE(g_pParticleForces);
+    SAFE_RELEASE(g_pParticleForcesSRV);
+    SAFE_RELEASE(g_pParticleForcesUAV);
 
-    SAFE_RELEASE( g_pGridPingPongSRV );
-    SAFE_RELEASE( g_pGridPingPongUAV );
-    SAFE_RELEASE( g_pGridPingPong );
+    SAFE_RELEASE(g_pParticleDensity);
+    SAFE_RELEASE(g_pParticleDensitySRV);
+    SAFE_RELEASE(g_pParticleDensityUAV);
 
-    SAFE_RELEASE( g_pGridIndicesSRV );
-    SAFE_RELEASE( g_pGridIndicesUAV );
-    SAFE_RELEASE( g_pGridIndices );
+    SAFE_RELEASE(g_pGridSRV);
+    SAFE_RELEASE(g_pGridUAV);
+    SAFE_RELEASE(g_pGrid);
+
+    SAFE_RELEASE(g_pGridPingPongSRV);
+    SAFE_RELEASE(g_pGridPingPongUAV);
+    SAFE_RELEASE(g_pGridPingPong);
+
+    SAFE_RELEASE(g_pGridIndicesSRV);
+    SAFE_RELEASE(g_pGridIndicesUAV);
+    SAFE_RELEASE(g_pGridIndices);
+
+    if (g_pGhostGPU)
+    {
+        g_pGhostGPU->ReleaseAll();
+    }
 }
