@@ -121,7 +121,7 @@ enum eSimulationMode
     SIM_MODE_GRID
 };
 
-eSimulationMode g_eSimMode = SIM_MODE_SIMPLE;
+eSimulationMode g_eSimMode = SIM_MODE_SIMPLE;// SIM_MODE_GRID;
 
 //--------------------------------------------------------------------------------------
 // Direct3D11 Global variables
@@ -357,7 +357,7 @@ void InitApp()
     g_SampleUI.AddRadioButton(IDC_SIMSIMPLE, IDC_SIMMODE, L"Simple N^2", 0, iY += 26, 150, 22);
     g_SampleUI.AddRadioButton(IDC_SIMSHARED, IDC_SIMMODE, L"Shared Memory N^2", 0, iY += 26, 150, 22);
     g_SampleUI.AddRadioButton(IDC_SIMGRID, IDC_SIMMODE, L"Grid + Sort", 0, iY += 26, 150, 22);
-    g_SampleUI.GetRadioButton(IDC_SIMGRID)->SetChecked(true);
+    g_SampleUI.GetRadioButton(IDC_SIMSIMPLE)->SetChecked(true);
 }
 
 
@@ -485,7 +485,7 @@ HRESULT CreateConstantBuffer(ID3D11Device* pd3dDevice, ID3D11Buffer** ppCB)
 // Helper for creating structured buffers with an SRV and UAV
 //--------------------------------------------------------------------------------------
 template <class T>
-HRESULT CreateStructuredBuffer(ID3D11Device* pd3dDevice, UINT iNumElements, ID3D11Buffer** ppBuffer, ID3D11ShaderResourceView** ppSRV, ID3D11UnorderedAccessView** ppUAV, const T* pInitialData = nullptr)
+HRESULT CreateStructuredBuffer(ID3D11Device* pd3dDevice, UINT iNumElements, ID3D11Buffer** ppBuffer, ID3D11ShaderResourceView** ppSRV, ID3D11UnorderedAccessView** ppUAV, const T* pInitialData = nullptr, ID3D11Buffer** ppBufferCPU = nullptr)
 {
     HRESULT hr = S_OK;
 
@@ -500,6 +500,17 @@ HRESULT CreateStructuredBuffer(ID3D11Device* pd3dDevice, UINT iNumElements, ID3D
     D3D11_SUBRESOURCE_DATA bufferInitData = {};
     bufferInitData.pSysMem = pInitialData;
     V_RETURN(pd3dDevice->CreateBuffer(&bufferDesc, (pInitialData) ? &bufferInitData : nullptr, ppBuffer));
+
+    if (ppBufferCPU)
+    {
+        // Create staging
+        bufferDesc.Usage = D3D11_USAGE_STAGING;
+        bufferDesc.BindFlags = 0;
+        bufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+        bufferDesc.MiscFlags = 0;
+        bufferDesc.StructureByteStride = 0;
+        V_RETURN(pd3dDevice->CreateBuffer(&bufferDesc, (pInitialData) ? &bufferInitData : nullptr, ppBufferCPU));
+    }
 
     // Create SRV
     D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -608,7 +619,25 @@ HRESULT CreateSimulationBuffers(ID3D11Device* pd3dDevice)
 
     if (g_pGhostGPU)
     {
-        g_pGhostGPU->ReleaseAll();
+
+        SAFE_RELEASE(g_pGhostGPU->m_pParticlesSRV);
+        SAFE_RELEASE(g_pGhostGPU->m_pParticlesUAV);
+        SAFE_RELEASE(g_pGhostGPU->m_pParticles);
+
+        SAFE_RELEASE(g_pGhostGPU->m_pParticlesCPU);
+
+        SAFE_RELEASE(g_pGhostGPU->m_pParticleDensitySRV);
+        SAFE_RELEASE(g_pGhostGPU->m_pParticleDensityUAV);
+        SAFE_RELEASE(g_pGhostGPU->m_pParticleDensity);
+
+        SAFE_RELEASE(g_pGhostGPU->m_pParticleForcesSRV);
+        SAFE_RELEASE(g_pGhostGPU->m_pParticleForcesUAV);
+        SAFE_RELEASE(g_pGhostGPU->m_pParticleForces);
+
+        SAFE_RELEASE(g_pGhostGPU->m_pSortedParticlesSRV);
+        SAFE_RELEASE(g_pGhostGPU->m_pSortedParticlesUAV);
+        SAFE_RELEASE(g_pGhostGPU->m_pSortedParticles);
+
 
         // Create Structured Buffers
         V_RETURN(CreateStructuredBuffer< Particle >(
@@ -617,7 +646,9 @@ HRESULT CreateSimulationBuffers(ID3D11Device* pd3dDevice)
             &(g_pGhostGPU->m_pParticles),
             &(g_pGhostGPU->m_pParticlesSRV),
             &(g_pGhostGPU->m_pParticlesUAV),
-            particles.get()));
+            particles.get(),
+            &(g_pGhostGPU->m_pParticlesCPU)));
+
 
         V_RETURN(CreateStructuredBuffer< Particle >(
             g_pGhostGPU->m_pd3dDevice,
@@ -689,7 +720,7 @@ HRESULT CALLBACK OnD3D11CreateDevice(ID3D11Device* pd3dDevice, const DXGI_SURFAC
 
     if (g_pGhostGPU)
     {
-        V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pIntegrateCS)));
+        V_RETURN(g_pGhostGPU->m_pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pIntegrateCS)));
     }
 
     SAFE_RELEASE(pBlob);
@@ -700,7 +731,7 @@ HRESULT CALLBACK OnD3D11CreateDevice(ID3D11Device* pd3dDevice, const DXGI_SURFAC
 
     if (g_pGhostGPU)
     {
-        V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pDensity_SimpleCS)));
+        V_RETURN(g_pGhostGPU->m_pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pDensity_SimpleCS)));
     }
 
     SAFE_RELEASE(pBlob);
@@ -711,7 +742,7 @@ HRESULT CALLBACK OnD3D11CreateDevice(ID3D11Device* pd3dDevice, const DXGI_SURFAC
 
     if (g_pGhostGPU)
     {
-        V_RETURN(pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pForce_SimpleCS)));
+        V_RETURN(g_pGhostGPU->m_pd3dDevice->CreateComputeShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), nullptr, &(g_pGhostGPU->m_pForce_SimpleCS)));
     }
 
     SAFE_RELEASE(pBlob);
@@ -912,9 +943,11 @@ void SimulateFluid_Simple(ID3D11DeviceContext* pd3dImmediateContext)
 }
 
 
-void Ghost_SimulateFluid_Simple(ID3D11DeviceContext* pd3dImmediateContext)
+void Ghost_SimulateFluid_Simple(ID3D11DeviceContext* pd3dLocalImmediateContext)
 {
     UINT UAVInitialCounts = 0;
+
+    ID3D11DeviceContext* pd3dImmediateContext = g_pGhostGPU->m_pd3dImmediateContext;
 
     // Setup
     pd3dImmediateContext->CSSetConstantBuffers(0, 1, &(g_pGhostGPU->m_pcbSimulationConstants));
@@ -938,6 +971,22 @@ void Ghost_SimulateFluid_Simple(ID3D11DeviceContext* pd3dImmediateContext)
     pd3dImmediateContext->CSSetShaderResources(2, 1, &(g_pGhostGPU->m_pParticleForcesSRV));
     pd3dImmediateContext->CSSetShader(g_pGhostGPU->m_pIntegrateCS, nullptr, 0);
     pd3dImmediateContext->Dispatch(g_iNumParticles / SIMULATION_BLOCK_SIZE, 1, 1);
+    pd3dImmediateContext->CopyResource(g_pGhostGPU->m_pParticlesCPU, g_pGhostGPU->m_pParticles);
+
+    D3D11_MAPPED_SUBRESOURCE subRes = { 0 };
+    pd3dImmediateContext->Map(g_pGhostGPU->m_pParticlesCPU, 0, D3D11_MAP_READ, 0, &subRes);
+
+    D3D11_BOX box;
+    box.left = 0;
+    box.right = subRes.RowPitch;
+    box.top = 0;
+    box.bottom = 1;
+    box.front = 0;
+    box.back = 1;
+
+    pd3dLocalImmediateContext->UpdateSubresource(g_pParticles, 0, &box, subRes.pData, subRes.RowPitch, subRes.DepthPitch);
+
+    pd3dImmediateContext->Unmap(g_pGhostGPU->m_pParticlesCPU, 0);
 }
 
 
@@ -1049,7 +1098,7 @@ void SimulateFluid_Grid(ID3D11DeviceContext* pd3dImmediateContext)
 //--------------------------------------------------------------------------------------
 // GPU Fluid Simulation
 //--------------------------------------------------------------------------------------
-void SimulateFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime)
+void RunSimulateFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime)
 {
     UINT UAVInitialCounts = 0;
 
@@ -1083,19 +1132,23 @@ void SimulateFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime
     pData.vPlanes[2] = g_vPlanes[2];
     pData.vPlanes[3] = g_vPlanes[3];
 
-    pd3dImmediateContext->UpdateSubresource(g_pcbSimulationConstants, 0, nullptr, &pData, 0, 0);
-
     if (g_pGhostGPU)
     {
         g_pGhostGPU->m_pd3dImmediateContext->UpdateSubresource(g_pGhostGPU->m_pcbSimulationConstants, 0, nullptr, &pData, 0, 0);
+    }
+    else
+    {
+        pd3dImmediateContext->UpdateSubresource(g_pcbSimulationConstants, 0, nullptr, &pData, 0, 0);
     }
 
     switch (g_eSimMode) {
         // Simple N^2 Algorithm
     case SIM_MODE_SIMPLE:
+
+        //SimulateFluid_Simple(pd3dImmediateContext);
         if (g_pGhostGPU)
         {
-            Ghost_SimulateFluid_Simple(g_pGhostGPU->m_pd3dImmediateContext);
+            Ghost_SimulateFluid_Simple(pd3dImmediateContext);
 
             g_pGhostGPU->m_pd3dImmediateContext->CSSetUnorderedAccessViews(0, 1, &g_pNullUAV, &UAVInitialCounts);
             g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(0, 1, &g_pNullSRV);
@@ -1104,9 +1157,6 @@ void SimulateFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime
             g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(3, 1, &g_pNullSRV);
             g_pGhostGPU->m_pd3dImmediateContext->CSSetShaderResources(4, 1, &g_pNullSRV);
         }
-
-        SimulateFluid_Simple(pd3dImmediateContext);
-
         break;
 
         // Optimized N^2 Algorithm using Shared Memory
@@ -1133,7 +1183,7 @@ void SimulateFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime
 //--------------------------------------------------------------------------------------
 // GPU Fluid Rendering
 //--------------------------------------------------------------------------------------
-void RenderFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime)
+void RunRenderFluid(ID3D11DeviceContext* pd3dImmediateContext, float fElapsedTime)
 {
     // Simple orthographic projection to display the entire map
     XMMATRIX mView = XMMatrixTranslation(-g_fMapWidth / 2.0f, -g_fMapHeight / 2.0f, 0);
@@ -1192,9 +1242,9 @@ void CALLBACK OnD3D11FrameRender(ID3D11Device* pd3dDevice, ID3D11DeviceContext* 
     auto pDSV = DXUTGetD3D11DepthStencilView();
     pd3dImmediateContext->ClearDepthStencilView(pDSV, D3D11_CLEAR_DEPTH, 1.0, 0);
 
-    SimulateFluid(pd3dImmediateContext, fElapsedTime);
+    RunSimulateFluid(pd3dImmediateContext, fElapsedTime);
 
-    RenderFluid(pd3dImmediateContext, fElapsedTime);
+    RunRenderFluid(pd3dImmediateContext, fElapsedTime);
 
     // Render the HUD
     DXUT_BeginPerfEvent(DXUT_PERFEVENTCOLOR, L"HUD / Stats");

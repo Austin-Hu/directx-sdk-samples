@@ -15,7 +15,7 @@ public:
         CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory);
 
         IDXGIAdapter* pAdapter;
-        hr = pFactory->EnumAdapters(2, &pAdapter);
+        hr = pFactory->EnumAdapters(0, &pAdapter);
         DXGI_ADAPTER_DESC       adapterDesc;
 
         D3D_DRIVER_TYPE driverTypes[] =
@@ -54,6 +54,8 @@ public:
         SAFE_RELEASE(m_pParticlesUAV);
         SAFE_RELEASE(m_pParticles);
 
+        SAFE_RELEASE(m_pParticlesCPU);
+
         SAFE_RELEASE(m_pParticleDensitySRV);
         SAFE_RELEASE(m_pParticleDensityUAV);
         SAFE_RELEASE(m_pParticleDensity);
@@ -83,6 +85,7 @@ public:
     ID3D11ComputeShader* m_pIntegrateCS = nullptr;
 
     ID3D11Buffer* m_pParticles = nullptr;
+    ID3D11Buffer* m_pParticlesCPU = nullptr;
     ID3D11ShaderResourceView* m_pParticlesSRV = nullptr;
     ID3D11UnorderedAccessView* m_pParticlesUAV = nullptr;
 
